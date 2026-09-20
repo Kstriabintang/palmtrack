@@ -71,6 +71,40 @@ PalmTrack adalah sistem manajemen sawit berbasis web yang dirancang khusus untuk
 
 ---
 
+## 🔄 Alur Kerja Aplikasi
+
+Gambaran alur data end-to-end, dari lapangan sampai laporan:
+
+1. **Peron** — Operator input timbangan TBS dari petani/pengepul (bruto → tara → netto otomatis, harga harian sudah di-set) — termasuk saat koneksi terputus, lewat mode offline dengan antrian yang otomatis sinkron saat online kembali. Nota digenerate otomatis dan pengingat pembayaran bisa dikirim langsung ke WhatsApp petani.
+2. **Kebun** — Mandor mencatat realisasi panen per blok (jumlah janjang, estimasi vs aktual kg) dan biaya perawatan (pupuk, herbisida, dll).
+3. **Pekerja** — Mandor/HR mencatat absensi harian; sistem menghitung upah otomatis berdasarkan kehadiran, siap direkap jadi gaji bulanan.
+4. **Keuangan** — Pembayaran ke petani (dari peron), gaji pekerja, dan biaya kebun tercatat sebagai pengeluaran; penjualan TBS ke PKS tercatat sebagai pemasukan. Hutang-piutang dipantau sampai lunas, dengan pengingat WhatsApp untuk piutang jatuh tempo.
+5. **Laporan & Dashboard** — Semua data di atas diagregasi jadi laporan bulanan/tahunan (PDF/Excel) dan ringkasan real-time di dashboard, sehingga Bos bisa memantau produksi dan keuangan kapan saja tanpa menunggu rekap manual.
+6. **Panduan Budidaya** — Modul referensi yang dikurasi dan diperbarui berkala oleh tim PalmTrack (bibit, jenis tanah, pupuk, hama, dll) — bersifat *read-only* untuk semua pengguna SaaS, termasuk Bos/Owner, karena kontennya adalah tanggung jawab tim agronomi PalmTrack, bukan input pelanggan.
+
+---
+
+## 📸 Preview
+
+> Diambil langsung dari `palmtrack-web` yang sedang berjalan — data yang tampil adalah data contoh/dummy (Phase 1, frontend belum tersambung ke backend sungguhan). Belum semua halaman ada di sini; folder [`docs/screenshots/`](docs/screenshots) akan terus bertambah seiring pengembangan.
+
+<table>
+<tr>
+<td width="50%"><img src="docs/screenshots/dashboard.png" alt="Dashboard PalmTrack" /><br/><sub align="center">Dashboard</sub></td>
+<td width="50%"><img src="docs/screenshots/peron.png" alt="Halaman Peron" /><br/><sub align="center">Peron — Input Timbang</sub></td>
+</tr>
+<tr>
+<td width="50%"><img src="docs/screenshots/kebun.png" alt="Halaman Kebun" /><br/><sub align="center">Kebun</sub></td>
+<td width="50%"><img src="docs/screenshots/keuangan.png" alt="Halaman Keuangan" /><br/><sub align="center">Keuangan</sub></td>
+</tr>
+<tr>
+<td width="50%"><img src="docs/screenshots/panduan.png" alt="Halaman Panduan Budidaya" /><br/><sub align="center">Panduan Budidaya</sub></td>
+<td width="50%"><img src="docs/screenshots/pengaturan.png" alt="Halaman Pengaturan" /><br/><sub align="center">Pengaturan</sub></td>
+</tr>
+</table>
+
+---
+
 ## 🛠️ Tech Stack
 
 ### Frontend — Web Dashboard
@@ -122,7 +156,14 @@ PalmTrack adalah sistem manajemen sawit berbasis web yang dirancang khusus untuk
 ```
 palmtrack/
 │
-├── palmtrack-web/              # React 19 + Vite — Web Dashboard
+├── .github/
+│   └── workflows/
+│       └── deploy.yml          # CI/CD — build & deploy palmtrack-web ke GitHub Pages
+│
+├── docs/
+│   └── screenshots/            # Screenshot preview aplikasi (lihat bagian Preview)
+│
+├── palmtrack-web/              # React 19 + Vite — Web Dashboard (aktif dikembangkan)
 │   ├── src/
 │   │   ├── routes/
 │   │   │   ├── auth/
@@ -152,7 +193,7 @@ palmtrack/
 │   │   └── types/                 # TypeScript type definitions
 │   └── public/
 │
-├── palmtrack-api/              # Laravel 12 — REST API
+├── palmtrack-api/              # Laravel 12 — REST API (direncanakan, belum diimplementasikan — lihat Roadmap)
 │   ├── app/
 │   │   ├── Http/
 │   │   │   ├── Controllers/
@@ -197,7 +238,8 @@ palmtrack/
 │   └── routes/
 │       └── api.php
 │
-└── README.md                   # File ini
+├── LICENSE
+└── readme.md                   # File ini
 ```
 
 ---
@@ -400,33 +442,31 @@ Laporan
 
 ## 🗺️ Roadmap
 
-### ✅ Phase 0 — Setup (Done)
-- [x] Inisiasi repository & struktur folder
-- [x] Dokumentasi awal (README)
-
-### 🔄 Phase 1 — Foundation & Peron (Current)
+### ✅ Frontend — `palmtrack-web` (UI Phase 1 — selesai)
 - [x] Setup project React 19 + Vite + shadcn/ui + Tailwind
+- [x] Dashboard overview
+- [x] Modul Peron — input timbang, data petani, harga TBS, nota, hutang petani
+- [x] Modul Kebun — data blok, jadwal & realisasi panen
+- [x] Modul Pekerja — data SDM & absensi
+- [x] Modul Keuangan — pemasukan, pengeluaran, hutang-piutang
+- [x] Modul Laporan
+- [x] Modul Panduan Budidaya (read-only, dikurasi tim PalmTrack)
+- [x] Modul Pengaturan (profil, notifikasi, keamanan, sistem)
+- [x] Integrasi WhatsApp untuk nota & pengingat pembayaran (deep link `wa.me`, bukan simulasi)
+- [x] Mode offline untuk Input Timbang — antrian lokal & auto-sync saat online kembali
+- [x] Deploy demo ke GitHub Pages
+
+> Semua modul di atas berjalan dengan **data contoh (dummy)** di sisi client — belum ada penyimpanan data sungguhan sampai `palmtrack-api` selesai dibangun dan dihubungkan. Jangan anggap ini sudah production-ready.
+
+### ⏳ Backend — `palmtrack-api` (belum dimulai)
 - [ ] Setup project Laravel 12 + PostgreSQL 16
 - [ ] Migrasi database — semua tabel utama
 - [ ] Authentication & role management (Laravel Sanctum SPA)
-- [ ] Modul Peron — Input timbang, data petani, harga TBS
-- [ ] Generate & share nota PDF
-- [ ] Rekap harian peron
-- [ ] Dashboard overview
+- [ ] REST API — Peron, Kebun, Pekerja, Keuangan, Laporan
+- [ ] Generate nota/slip gaji PDF sisi server
+- [ ] Hubungkan `palmtrack-web` ke API sungguhan (ganti seluruh data dummy)
 
-### 📋 Phase 2 — Kebun & Pekerja
-- [ ] Modul Kebun — Data blok, jadwal & realisasi panen
-- [ ] Modul Pekerja — Data SDM & absensi harian
-- [ ] Modul Gaji — Kalkulasi & slip gaji bulanan
-- [ ] Notifikasi jadwal panen
-
-### 📊 Phase 3 — Keuangan & Laporan
-- [ ] Modul Keuangan — Pemasukan, pengeluaran, hutang/piutang
-- [ ] Laporan bulanan & tahunan
-- [ ] Export PDF & Excel
-- [ ] Grafik tren produksi & keuangan
-
-### 📱 Phase 4 — Mobile App (Flutter)
+### 📱 Mobile App — Flutter (rencana jangka panjang)
 - [ ] Flutter Android app (offline-first, SQLite)
 - [ ] Bluetooth thermal printer (nota timbang)
 - [ ] Background sync offline → online
