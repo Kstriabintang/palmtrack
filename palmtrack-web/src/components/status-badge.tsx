@@ -20,6 +20,7 @@ const STATUS_TONE: Record<string, string> = {
   'Perlu Perhatian': 'bg-amber-500/10 text-amber-600',
   'Perlu Persiapan': 'bg-amber-500/10 text-amber-600',
   'Belum Lunas': 'bg-amber-500/10 text-amber-600',
+  'Belum Dibayar': 'bg-amber-500/10 text-amber-600',
   'Cicilan Berjalan': 'bg-amber-500/10 text-amber-600',
   Izin: 'bg-amber-500/10 text-amber-600',
   Maintenance: 'bg-amber-500/10 text-amber-600',

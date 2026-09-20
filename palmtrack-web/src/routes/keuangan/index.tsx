@@ -42,8 +42,18 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { initials, rupiah } from '@/lib/format'
+import { TRANSAKSI_SEPTEMBER_2026 } from '@/lib/dummy-transaksi'
+import { initials, rupiah, rupiahSingkat } from '@/lib/format'
 import { buildReminderMessage, openWhatsApp } from '@/lib/whatsapp'
+
+const HUTANG_PIUTANG = [
+  { pihak: 'Pak Agus Salim', telepon: '0821-9988-7766', jenis: 'Piutang', jumlah: 4200000, status: 'Belum Lunas', jatuhTempo: '25 Sep 2026' },
+  { pihak: 'Ibu Ningsih', telepon: '0813-6677-8899', jenis: 'Piutang', jumlah: 6264000, status: 'Belum Lunas', jatuhTempo: '24 Sep 2026' },
+  { pihak: 'Toko Tani Makmur', telepon: '0811-2233-9988', jenis: 'Hutang', jumlah: 5800000, status: 'Cicilan Berjalan', jatuhTempo: '30 Sep 2026' },
+  { pihak: 'Pak Darmawan', telepon: '0813-5544-3322', jenis: 'Piutang', jumlah: 900000, status: 'Belum Lunas', jatuhTempo: '26 Sep 2026' },
+]
+
+const TOTAL_HUTANG_PIUTANG = HUTANG_PIUTANG.reduce((sum, item) => sum + item.jumlah, 0)
 
 const STATS = [
   {
@@ -75,32 +85,16 @@ const STATS = [
   },
   {
     label: 'Hutang & Piutang',
-    value: 'Rp 12,3 jt',
-    hint: '8 pihak belum lunas',
+    value: rupiahSingkat(TOTAL_HUTANG_PIUTANG),
+    hint: `Dari ${HUTANG_PIUTANG.length} pihak`,
     icon: CircleAlert,
     tone: 'bg-destructive/10 text-destructive',
-    trend: [9.8, 10.5, 11.2, 10.8, 12.1, 11.6, 12.3],
+    trend: [13.8, 14.5, 15.2, 15.8, 16.4, 16.9, TOTAL_HUTANG_PIUTANG / 1_000_000],
     trendColor: 'var(--color-destructive)',
   },
 ]
 
-const TRANSAKSI = [
-  { tanggal: '20 Sep', jenis: 'Pemasukan', kategori: 'Penjualan TBS', keterangan: 'Setoran PKS Ambawang', jumlah: 42500000 },
-  { tanggal: '19 Sep', jenis: 'Pengeluaran', kategori: 'Gaji', keterangan: 'Gaji mingguan pekerja', jumlah: -12600000 },
-  { tanggal: '19 Sep', jenis: 'Pengeluaran', kategori: 'Operasional', keterangan: 'Pembelian pupuk NPK', jumlah: -4200000 },
-  { tanggal: '18 Sep', jenis: 'Pemasukan', kategori: 'Penjualan TBS', keterangan: 'Setoran PKS Kubu Raya', jumlah: 38200000 },
-  { tanggal: '17 Sep', jenis: 'Pengeluaran', kategori: 'Perawatan', keterangan: 'Herbisida Blok C1', jumlah: -1850000 },
-  { tanggal: '16 Sep', jenis: 'Pemasukan', kategori: 'Pelunasan Hutang', keterangan: 'Dari Pak Agus Salim', jumlah: 3272500 },
-  { tanggal: '15 Sep', jenis: 'Pengeluaran', kategori: 'Perawatan', keterangan: 'Pemupukan Kalium Blok B1', jumlah: -3100000 },
-  { tanggal: '14 Sep', jenis: 'Pengeluaran', kategori: 'Operasional', keterangan: 'Pengendalian hama Blok C2', jumlah: -2400000 },
-]
-
-const HUTANG_PIUTANG = [
-  { pihak: 'Pak Agus Salim', telepon: '0821-9988-7766', jenis: 'Piutang', jumlah: 4200000, status: 'Belum Lunas', jatuhTempo: '25 Sep 2026' },
-  { pihak: 'Ibu Ningsih', telepon: '0813-6677-8899', jenis: 'Piutang', jumlah: 6264000, status: 'Belum Lunas', jatuhTempo: '24 Sep 2026' },
-  { pihak: 'Toko Tani Makmur', telepon: '0811-2233-9988', jenis: 'Hutang', jumlah: 5800000, status: 'Cicilan Berjalan', jatuhTempo: '30 Sep 2026' },
-  { pihak: 'Pak Darmawan', telepon: '0813-5544-3322', jenis: 'Piutang', jumlah: 900000, status: 'Belum Lunas', jatuhTempo: '26 Sep 2026' },
-]
+const TRANSAKSI = TRANSAKSI_SEPTEMBER_2026
 
 const PENGELUARAN_KATEGORI = [
   { kategori: 'Gaji Pekerja', nilai: 42800000, icon: Users },

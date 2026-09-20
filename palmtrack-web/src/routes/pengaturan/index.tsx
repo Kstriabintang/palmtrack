@@ -13,6 +13,7 @@ import {
   Eye,
   EyeOff,
   Globe,
+  CalendarClock,
   HelpCircle,
   Info,
   KeyRound,
@@ -48,6 +49,14 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -66,6 +75,14 @@ import { Separator } from '@/components/ui/separator'
 import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { initials } from '@/lib/format'
+import {
+  activateLicense,
+  autoFormatKeyInput,
+  daysRemaining,
+  getLicenseState,
+  getStoredLicense,
+  maskKey,
+} from '@/lib/license'
 import { type PasswordInput, passwordSchema, type ProfilInput, profilSchema } from '@/lib/validations/settings'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth-store'
@@ -272,6 +289,27 @@ export function PengaturanPage() {
   const displayRole = user ? user.role.replace('_', ' ') : 'Manajer Kebun'
   const [bahasa, setBahasa] = useState('id')
   const [zonaWaktu, setZonaWaktu] = useState('wib')
+  const [license, setLicense] = useState(() => getStoredLicense())
+  const [licenseDialogOpen, setLicenseDialogOpen] = useState(false)
+  const [newKey, setNewKey] = useState('')
+  const [keyError, setKeyError] = useState<string | null>(null)
+  const licenseState = license ? getLicenseState() : 'none'
+  const licenseDaysLeft = license ? daysRemaining(license) : 0
+
+  function handlePerpanjangLisensi() {
+    const result = activateLicense(newKey)
+    if (!result.ok) {
+      setKeyError(result.error)
+      return
+    }
+    setLicense(result.license)
+    setNewKey('')
+    setKeyError(null)
+    setLicenseDialogOpen(false)
+    toast.success('Lisensi berhasil diperbarui', {
+      description: `Berlaku hingga ${new Date(result.license.expiresAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}.`,
+    })
+  }
 
   const [notifChecked, setNotifChecked] = useState<Record<string, boolean>>(
     Object.fromEntries(NOTIFICATION_ITEMS.map((item) => [item.id, item.defaultChecked])),
@@ -857,6 +895,60 @@ export function PengaturanPage() {
 
         <TabsContent value="sistem" className="flex flex-col gap-4">
           <Card>
+            <CardHeader className="flex flex-row items-center justify-between gap-3">
+              <CardTitle className="flex items-center gap-2">
+                <KeyRound className="size-4 text-primary" />
+                Status Lisensi
+              </CardTitle>
+              {license && (
+                <StatusBadge
+                  status={
+                    licenseState === 'active' ? 'Aktif' : licenseState === 'expiring' ? 'Perlu Perhatian' : 'Belum Aktif'
+                  }
+                />
+              )}
+            </CardHeader>
+            <CardContent className="flex flex-col gap-4">
+              {license ? (
+                <>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    <div className="flex flex-col gap-0.5 rounded-lg bg-muted/50 p-3">
+                      <span className="text-xs text-muted-foreground">Kunci Lisensi</span>
+                      <span className="font-mono text-sm font-medium">{maskKey(license.key)}</span>
+                    </div>
+                    <div className="flex flex-col gap-0.5 rounded-lg bg-muted/50 p-3">
+                      <span className="text-xs text-muted-foreground">Aktif Sejak</span>
+                      <span className="text-sm font-medium">
+                        {new Date(license.activatedAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+                      </span>
+                    </div>
+                    <div className="flex flex-col gap-0.5 rounded-lg bg-muted/50 p-3">
+                      <span className="text-xs text-muted-foreground">Berlaku Hingga</span>
+                      <span className="text-sm font-medium">
+                        {new Date(license.expiresAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2.5 rounded-lg bg-primary/5 px-3 py-2.5 text-sm ring-1 ring-primary/15">
+                    <CalendarClock className="size-4 shrink-0 text-primary" />
+                    <span>
+                      {licenseDaysLeft >= 0
+                        ? `${licenseDaysLeft} hari lagi sebelum lisensi berakhir.`
+                        : `Lisensi telah berakhir ${Math.abs(licenseDaysLeft)} hari lalu.`}
+                    </span>
+                  </div>
+                </>
+              ) : (
+                <p className="text-sm text-muted-foreground">Belum ada lisensi aktif di perangkat ini.</p>
+              )}
+              <Button variant="outline" className="w-fit" onClick={() => setLicenseDialogOpen(true)}>
+                <ShieldCheck />
+                Perbarui / Ganti Lisensi
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <BadgeInfo className="size-4 text-primary" />
@@ -937,6 +1029,38 @@ export function PengaturanPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <Dialog open={licenseDialogOpen} onOpenChange={setLicenseDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Perbarui Lisensi</DialogTitle>
+            <DialogDescription>Masukkan kunci lisensi baru untuk memperpanjang atau mengganti aktivasi.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="new-license-key">Kunci Lisensi</Label>
+            <Input
+              id="new-license-key"
+              value={newKey}
+              onChange={(event) => {
+                setKeyError(null)
+                setNewKey(autoFormatKeyInput(event.target.value))
+              }}
+              placeholder="PLMT-XXXX-XXXX-XXXX"
+              className="font-mono tracking-wider uppercase"
+              maxLength={19}
+              autoComplete="off"
+              spellCheck={false}
+            />
+            {keyError && <p className="text-sm text-destructive">{keyError}</p>}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setLicenseDialogOpen(false)}>
+              Batal
+            </Button>
+            <Button onClick={handlePerpanjangLisensi}>Aktifkan</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

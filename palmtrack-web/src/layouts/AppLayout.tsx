@@ -34,6 +34,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
 import { initials } from '@/lib/format'
+import { clearLicense, isLicenseUsable } from '@/lib/license'
 import { cn } from '@/lib/utils'
 import {
   Sidebar,
@@ -154,8 +155,16 @@ export function AppLayout() {
 
   const handleLogout = () => {
     logout()
+    clearLicense()
     navigate('/login')
   }
+
+  useEffect(() => {
+    if (!isLicenseUsable()) {
+      navigate('/login', { replace: true })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname])
 
   function markAsRead(id: string) {
     setNotifications((prev) => prev.map((item) => (item.id === id ? { ...item, unread: false } : item)))

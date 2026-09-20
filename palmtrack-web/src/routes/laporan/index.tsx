@@ -30,6 +30,8 @@ import {
 } from 'recharts'
 import { toast } from 'sonner'
 import { StatCard } from '@/components/stat-card'
+import { TOTAL_PEMASUKAN_SEPTEMBER_2026, TOTAL_PENGELUARAN_SEPTEMBER_2026, TRANSAKSI_SEPTEMBER_2026 } from '@/lib/dummy-transaksi'
+import { generateLaporanPdf } from '@/lib/pdf'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -134,6 +136,51 @@ function notifyComingSoon(action: string, subjek: string) {
   })
 }
 
+function handleUnduhBulanan() {
+  toast.promise(
+    generateLaporanPdf({
+      judul: 'Laporan Bulanan',
+      periode: 'September 2026',
+      totalPemasukan: TOTAL_PEMASUKAN_SEPTEMBER_2026,
+      totalPengeluaran: TOTAL_PENGELUARAN_SEPTEMBER_2026,
+      transaksi: TRANSAKSI_SEPTEMBER_2026,
+    }),
+    { loading: 'Menyiapkan laporan bulanan...', success: 'Laporan bulanan berhasil diunduh', error: 'Gagal membuat laporan' },
+  )
+}
+
+function handleUnduhTahunan() {
+  const transaksiTahunan = TREN_TAHUNAN.flatMap((item) => [
+    {
+      tanggal: item.bulan,
+      jenis: 'Pemasukan' as const,
+      kategori: 'Pendapatan Bulanan',
+      keterangan: `Total pendapatan ${item.bulan} 2026`,
+      jumlah: item.pendapatan * 1_000_000,
+    },
+    {
+      tanggal: item.bulan,
+      jenis: 'Pengeluaran' as const,
+      kategori: 'Operasional & Perawatan',
+      keterangan: `Total pengeluaran ${item.bulan} 2026`,
+      jumlah: -item.pengeluaran * 1_000_000,
+    },
+  ])
+  const totalPemasukan = TREN_TAHUNAN.reduce((sum, item) => sum + item.pendapatan, 0) * 1_000_000
+  const totalPengeluaran = TREN_TAHUNAN.reduce((sum, item) => sum + item.pengeluaran, 0) * 1_000_000
+
+  toast.promise(
+    generateLaporanPdf({
+      judul: 'Laporan Tahunan',
+      periode: 'Januari – September 2026',
+      totalPemasukan,
+      totalPengeluaran,
+      transaksi: transaksiTahunan,
+    }),
+    { loading: 'Menyiapkan laporan tahunan...', success: 'Laporan tahunan berhasil diunduh', error: 'Gagal membuat laporan' },
+  )
+}
+
 export function LaporanPage() {
   const [periode, setPeriode] = useState(PERIODE_OPTIONS[0])
   const [query, setQuery] = useState('')
@@ -202,7 +249,7 @@ export function LaporanPage() {
               Rekap produksi, pemasukan, dan pengeluaran untuk periode yang dipilih.
             </p>
             <div className="flex gap-2">
-              <Button variant="outline" className="flex-1" onClick={() => notifyComingSoon('Unduh PDF', 'Laporan Bulanan')}>
+              <Button variant="outline" className="flex-1" onClick={handleUnduhBulanan}>
                 <FileText />
                 Unduh PDF
               </Button>
@@ -226,7 +273,7 @@ export function LaporanPage() {
               Rekap performa penuh tahun berjalan, periode Januari – Desember.
             </p>
             <div className="flex gap-2">
-              <Button variant="outline" className="flex-1" onClick={() => notifyComingSoon('Unduh PDF', 'Laporan Tahunan')}>
+              <Button variant="outline" className="flex-1" onClick={handleUnduhTahunan}>
                 <FileText />
                 Unduh PDF
               </Button>

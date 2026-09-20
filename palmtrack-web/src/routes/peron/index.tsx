@@ -65,49 +65,21 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { initials, rupiah } from '@/lib/format'
+import { initials, rupiah, rupiahSingkat } from '@/lib/format'
 import { addToQueue, clearQueue, getQueue, type OfflineTimbangEntry } from '@/lib/offline-queue'
+import { generateNotaTimbangPdf } from '@/lib/pdf'
 import { buildNotaMessage, buildReminderMessage, openWhatsApp } from '@/lib/whatsapp'
 
-const STATS = [
-  {
-    label: 'Netto Hari Ini',
-    value: '12.480 kg',
-    hint: '24 transaksi tercatat',
-    delta: '+8%',
-    icon: BarChart3,
-    trend: [9800, 10400, 10900, 11200, 11800, 12100, 12480],
-    trendColor: 'var(--color-primary)',
-  },
-  {
-    label: 'Harga TBS Hari Ini',
-    value: 'Rp 2.450 / kg',
-    hint: 'Naik Rp 50 dari kemarin',
-    delta: '+2%',
-    icon: Coins,
-    tone: 'bg-amber-500/10 text-amber-600',
-    trend: [2350, 2350, 2380, 2400, 2400, 2400, 2450],
-    trendColor: 'var(--color-amber-500)',
-  },
-  {
-    label: 'Transaksi Hari Ini',
-    value: '24 transaksi',
-    hint: '3 peron aktif menimbang',
-    icon: Receipt,
-    tone: 'bg-sky-500/10 text-sky-600',
-    trend: [14, 16, 18, 15, 19, 21, 24],
-    trendColor: 'var(--color-sky-500)',
-  },
-  {
-    label: 'Hutang Petani',
-    value: 'Rp 12,3 jt',
-    hint: '8 petani belum lunas',
-    icon: Truck,
-    tone: 'bg-destructive/10 text-destructive',
-    trend: [9.8, 10.5, 11.2, 10.8, 12.1, 11.6, 12.3],
-    trendColor: 'var(--color-destructive)',
-  },
-]
+const HARGA_TBS_STAT = {
+  label: 'Harga TBS Hari Ini',
+  value: 'Rp 2.450 / kg',
+  hint: 'Naik Rp 50 dari kemarin',
+  delta: '+2%',
+  icon: Coins,
+  tone: 'bg-amber-500/10 text-amber-600',
+  trend: [2350, 2350, 2380, 2400, 2400, 2400, 2450],
+  trendColor: 'var(--color-amber-500)',
+}
 
 const TIMBANGAN_INITIAL = [
   { waktu: '10:24', petani: 'Bapak Suroto', telepon: '0812-5566-7788', plat: 'KB 1234 XY', peron: 'Peron 1', bruto: 3200, tara: 860, netto: 2340, harga: 2450, status: 'Lunas' },
@@ -122,7 +94,7 @@ const TIMBANGAN_INITIAL = [
 
 const HUTANG_PETANI = [
   { petani: 'Pak Agus Salim', telepon: '0821-9988-7766', sisa: 4200000, tanggal: '18 Sep 2026', jatuhTempo: '25 Sep 2026', tone: 'bg-primary/10 text-primary' },
-  { petani: 'Ibu Ningsih', telepon: '0813-6677-8899', sisa: 3150000, tanggal: '17 Sep 2026', jatuhTempo: '24 Sep 2026', tone: 'bg-sky-500/10 text-sky-600' },
+  { petani: 'Ibu Ningsih', telepon: '0813-6677-8899', sisa: 6264000, tanggal: '17 Sep 2026', jatuhTempo: '24 Sep 2026', tone: 'bg-sky-500/10 text-sky-600' },
   { petani: 'Pak Bambang', telepon: '0821-4455-6677', sisa: 2750000, tanggal: '16 Sep 2026', jatuhTempo: '23 Sep 2026', tone: 'bg-amber-500/10 text-amber-600' },
   { petani: 'Pak Mulyono', telepon: '0852-7788-9900', sisa: 1850000, tanggal: '15 Sep 2026', jatuhTempo: '22 Sep 2026', tone: 'bg-violet-500/10 text-violet-600' },
   { petani: 'Pak Slamet Riyadi', telepon: '0852-1122-3344', sisa: 1200000, tanggal: '14 Sep 2026', jatuhTempo: '21 Sep 2026', tone: 'bg-rose-500/10 text-rose-600' },
@@ -134,11 +106,11 @@ const HARGA_PERON = [
   { peron: 'Peron 3', harga: 2400, perubahan: 0 },
 ]
 
-const DISTRIBUSI_NETTO = [
-  { peron: 'Peron 1', kg: 4320, pct: 35, color: 'var(--color-chart-1)' },
-  { peron: 'Peron 2', kg: 4200, pct: 34, color: 'var(--color-chart-3)' },
-  { peron: 'Peron 3', kg: 3960, pct: 31, color: 'var(--color-chart-4)' },
-]
+const DISTRIBUSI_COLORS: Record<string, string> = {
+  'Peron 1': 'var(--color-chart-1)',
+  'Peron 2': 'var(--color-chart-3)',
+  'Peron 3': 'var(--color-chart-4)',
+}
 
 const PERIODE_OPTIONS = ['Hari Ini', '7 Hari Terakhir', 'Bulan Ini']
 const STATUS_FILTERS = ['Semua Status', 'Lunas', 'Belum Lunas']
@@ -223,6 +195,32 @@ export function PeronPage() {
     })
   }
 
+  function handleCetakNota(row: (typeof TIMBANGAN_INITIAL)[number]) {
+    const nomorNota = `TB-${row.plat.replace(/\s+/g, '')}-${row.waktu.replace(':', '')}`
+    toast.promise(
+      generateNotaTimbangPdf({
+        nomorNota,
+        tanggal: '20 September 2026',
+        waktu: row.waktu,
+        petani: row.petani,
+        telepon: row.telepon,
+        plat: row.plat,
+        peron: row.peron,
+        bruto: row.bruto,
+        tara: row.tara,
+        netto: row.netto,
+        harga: row.harga,
+        total: row.netto * row.harga,
+        status: row.status,
+      }),
+      {
+        loading: 'Menyiapkan nota PDF...',
+        success: `Nota ${nomorNota} berhasil diunduh`,
+        error: 'Gagal membuat nota PDF',
+      },
+    )
+  }
+
   function handleSubmitTimbang() {
     const bruto = Number(form.bruto)
     const tara = Number(form.tara)
@@ -281,6 +279,56 @@ export function PeronPage() {
   }, [query, statusFilter, timbangan])
 
   const hargaRataRata = Math.round(HARGA_PERON.reduce((sum, item) => sum + item.harga, 0) / HARGA_PERON.length)
+
+  const nettoHariIni = useMemo(() => timbangan.reduce((sum, row) => sum + row.netto, 0), [timbangan])
+  const totalHutangPetani = useMemo(() => HUTANG_PETANI.reduce((sum, item) => sum + item.sisa, 0), [])
+
+  const distribusiNetto = useMemo(() => {
+    const totals = new Map<string, number>()
+    for (const row of timbangan) {
+      totals.set(row.peron, (totals.get(row.peron) ?? 0) + row.netto)
+    }
+    const total = [...totals.values()].reduce((sum, kg) => sum + kg, 0) || 1
+    return [...totals.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .map(([peron, kg]) => ({
+        peron,
+        kg,
+        pct: Math.round((kg / total) * 100),
+        color: DISTRIBUSI_COLORS[peron] ?? 'var(--color-chart-2)',
+      }))
+  }, [timbangan])
+
+  const STATS = [
+    {
+      label: 'Netto Hari Ini',
+      value: `${nettoHariIni.toLocaleString('id-ID')} kg`,
+      hint: `${timbangan.length} transaksi tercatat`,
+      delta: '+8%',
+      icon: BarChart3,
+      trend: [11200, 12400, 13800, 15100, 16400, 17500, nettoHariIni],
+      trendColor: 'var(--color-primary)',
+    },
+    HARGA_TBS_STAT,
+    {
+      label: 'Transaksi Hari Ini',
+      value: `${timbangan.length} transaksi`,
+      hint: '3 peron aktif menimbang',
+      icon: Receipt,
+      tone: 'bg-sky-500/10 text-sky-600',
+      trend: [4, 5, 6, 6, 7, 7, timbangan.length],
+      trendColor: 'var(--color-sky-500)',
+    },
+    {
+      label: 'Hutang Petani',
+      value: rupiahSingkat(totalHutangPetani),
+      hint: `${HUTANG_PETANI.length} petani belum lunas`,
+      icon: Truck,
+      tone: 'bg-destructive/10 text-destructive',
+      trend: [12.8, 13.5, 14.2, 15.0, 15.6, 16.0, totalHutangPetani / 1_000_000],
+      trendColor: 'var(--color-destructive)',
+    },
+  ]
 
   const brutoPreview = Number(form.bruto) || 0
   const taraPreview = Number(form.tara) || 0
@@ -436,9 +484,9 @@ export function PeronPage() {
                             <Eye />
                             Lihat Detail
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => notifyComingSoon('Cetak nota', row.petani)}>
+                          <DropdownMenuItem onClick={() => handleCetakNota(row)}>
                             <Printer />
-                            Cetak Nota
+                            Cetak Nota (PDF)
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             className="text-emerald-600 focus:text-emerald-600"
@@ -584,7 +632,7 @@ export function PeronPage() {
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
-                      data={DISTRIBUSI_NETTO}
+                      data={distribusiNetto}
                       dataKey="kg"
                       nameKey="peron"
                       innerRadius={38}
@@ -593,19 +641,19 @@ export function PeronPage() {
                       stroke="var(--color-card)"
                       strokeWidth={2}
                     >
-                      {DISTRIBUSI_NETTO.map((item) => (
+                      {distribusiNetto.map((item) => (
                         <Cell key={item.peron} fill={item.color} />
                       ))}
                     </Pie>
                   </PieChart>
                 </ResponsiveContainer>
                 <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                  <span className="text-sm font-semibold tracking-tight">12.480 kg</span>
+                  <span className="text-sm font-semibold tracking-tight">{nettoHariIni.toLocaleString('id-ID')} kg</span>
                   <span className="text-[10px] text-muted-foreground">Total Hari Ini</span>
                 </div>
               </div>
               <div className="flex flex-1 flex-col gap-2">
-                {DISTRIBUSI_NETTO.map((item) => (
+                {distribusiNetto.map((item) => (
                   <div key={item.peron} className="flex items-center justify-between gap-2 text-sm">
                     <span className="flex items-center gap-1.5">
                       <span className="size-2 shrink-0 rounded-full" style={{ backgroundColor: item.color }} />
