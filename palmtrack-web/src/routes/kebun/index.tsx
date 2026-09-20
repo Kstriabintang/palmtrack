@@ -10,7 +10,10 @@ import {
   Eye,
   Filter,
   Fuel,
+  List,
   ListFilter,
+  Map as MapIcon,
+  MapPin,
   MoreHorizontal,
   Pencil,
   Plus,
@@ -21,14 +24,23 @@ import {
   Users,
   Wrench,
 } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { lazy, Suspense, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { DonutSummary } from '@/components/donut-summary'
+import type { BlokMapData, PeronMapData } from '@/components/kebun-map'
 import { StatCard } from '@/components/stat-card'
 import { StatusBadge } from '@/components/status-badge'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -38,6 +50,14 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import {
   Table,
   TableBody,
@@ -48,9 +68,33 @@ import {
 } from '@/components/ui/table'
 import { EmptyState } from '@/components/empty-state'
 import type { StatCardProps } from '@/components/stat-card'
+import { getBusinessProfile } from '@/lib/business'
 import { seedData } from '@/lib/dummy-mode'
+import { activeHargaPeron, computeTodayStatsByPeron, KEBUN_CENTER, PERON_LOCATIONS_DUMMY, TIMBANGAN_DUMMY } from '@/lib/dummy-peron'
 import { rupiah } from '@/lib/format'
+import { type LngLat, offsetPoint, polygonCenter, rectPolygon } from '@/lib/geo'
+import { usePersistedState } from '@/lib/use-persisted-state'
 import { cn } from '@/lib/utils'
+
+// mapbox-gl is a ~1MB library — only fetch it once the Peta Kebun tab is opened.
+const KebunMap = lazy(() => import('@/components/kebun-map').then((m) => ({ default: m.KebunMap })))
+
+const SUKAMAJU: LngLat = [109.295, -0.115]
+const MAKMUR_JAYA: LngLat = [109.31, -0.118]
+const HARAPAN_SAWIT: LngLat = [109.29, -0.128]
+const TUNAS_LESTARI: LngLat = [109.308, -0.132]
+const BERKAH_ALAM: LngLat = [109.298, -0.14]
+
+function blockPolygon(cluster: LngLat, dxM: number, dyM: number, sideM: number, rotationDeg = 0): LngLat[] {
+  return rectPolygon(offsetPoint(cluster, dxM, dyM), sideM, sideM, rotationDeg)
+}
+
+const STATUS_COLOR_VAR: Record<string, string> = {
+  Aktif: 'var(--color-primary)',
+  'Perlu Perhatian': 'var(--color-amber-500)',
+  Replanting: 'var(--color-sky-500)',
+  'Non-aktif': 'var(--color-muted-foreground)',
+}
 
 const STATS_DUMMY: StatCardProps[] = [
   {
@@ -89,24 +133,27 @@ const STATS_DUMMY: StatCardProps[] = [
   },
 ]
 
-const STATS_EMPTY: StatCardProps[] = [
-  { label: 'Total Luas Tanam', value: '0 Ha', hint: 'Belum ada kebun', icon: Ruler },
-  { label: 'Blok Aktif', value: '0 blok', hint: 'Belum ada blok', icon: Sprout },
-  { label: 'Produksi Bulan Ini', value: '0 kg', hint: 'Dari seluruh blok', icon: BarChart3, tone: 'bg-sky-500/10 text-sky-600' },
-  { label: 'Siap Panen', value: '0 blok', hint: 'Belum ada jadwal panen', icon: CalendarClock, tone: 'bg-amber-500/10 text-amber-600' },
-]
+interface BlokLahan {
+  blok: string
+  kebun: string
+  luas: number
+  tanam: number
+  mandor: string
+  status: string
+  polygon?: LngLat[]
+}
 
-const BLOK_LAHAN_DUMMY = [
-  { blok: 'Blok A1', kebun: 'Kebun Sukamaju', luas: 8.5, tanam: 2018, mandor: 'Pak Herman', status: 'Aktif' },
-  { blok: 'Blok A2', kebun: 'Kebun Sukamaju', luas: 7.8, tanam: 2018, mandor: 'Pak Herman', status: 'Aktif' },
-  { blok: 'Blok A3', kebun: 'Kebun Sukamaju', luas: 9.2, tanam: 2019, mandor: 'Pak Herman', status: 'Aktif' },
-  { blok: 'Blok B1', kebun: 'Kebun Makmur Jaya', luas: 8.0, tanam: 2017, mandor: 'Pak Yusuf', status: 'Aktif' },
-  { blok: 'Blok B2', kebun: 'Kebun Makmur Jaya', luas: 7.5, tanam: 2017, mandor: 'Pak Yusuf', status: 'Aktif' },
-  { blok: 'Blok C1', kebun: 'Kebun Harapan Sawit', luas: 10.1, tanam: 2020, mandor: 'Pak Herman', status: 'Aktif' },
-  { blok: 'Blok C2', kebun: 'Kebun Harapan Sawit', luas: 9.4, tanam: 2020, mandor: 'Pak Herman', status: 'Perlu Perhatian' },
-  { blok: 'Blok D3', kebun: 'Kebun Tunas Lestari', luas: 6.8, tanam: 2022, mandor: 'Pak Slamet', status: 'Replanting' },
-  { blok: 'Blok D4', kebun: 'Kebun Tunas Lestari', luas: 7.2, tanam: 2016, mandor: 'Pak Yusuf', status: 'Aktif' },
-  { blok: 'Blok E1', kebun: 'Kebun Berkah Alam', luas: 8.9, tanam: 2015, mandor: 'Pak Bambang', status: 'Aktif' },
+const BLOK_LAHAN_DUMMY: BlokLahan[] = [
+  { blok: 'Blok A1', kebun: 'Kebun Sukamaju', luas: 8.5, tanam: 2018, mandor: 'Pak Herman', status: 'Aktif', polygon: blockPolygon(SUKAMAJU, -400, 0, 290) },
+  { blok: 'Blok A2', kebun: 'Kebun Sukamaju', luas: 7.8, tanam: 2018, mandor: 'Pak Herman', status: 'Aktif', polygon: blockPolygon(SUKAMAJU, 0, 20, 280, 8) },
+  { blok: 'Blok A3', kebun: 'Kebun Sukamaju', luas: 9.2, tanam: 2019, mandor: 'Pak Herman', status: 'Aktif', polygon: blockPolygon(SUKAMAJU, 400, 50, 300, -6) },
+  { blok: 'Blok B1', kebun: 'Kebun Makmur Jaya', luas: 8.0, tanam: 2017, mandor: 'Pak Yusuf', status: 'Aktif', polygon: blockPolygon(MAKMUR_JAYA, -220, 0, 285) },
+  { blok: 'Blok B2', kebun: 'Kebun Makmur Jaya', luas: 7.5, tanam: 2017, mandor: 'Pak Yusuf', status: 'Aktif', polygon: blockPolygon(MAKMUR_JAYA, 220, 30, 275, 10) },
+  { blok: 'Blok C1', kebun: 'Kebun Harapan Sawit', luas: 10.1, tanam: 2020, mandor: 'Pak Herman', status: 'Aktif', polygon: blockPolygon(HARAPAN_SAWIT, -230, 0, 320) },
+  { blok: 'Blok C2', kebun: 'Kebun Harapan Sawit', luas: 9.4, tanam: 2020, mandor: 'Pak Herman', status: 'Perlu Perhatian', polygon: blockPolygon(HARAPAN_SAWIT, 230, -20, 310, -8) },
+  { blok: 'Blok D3', kebun: 'Kebun Tunas Lestari', luas: 6.8, tanam: 2022, mandor: 'Pak Slamet', status: 'Replanting', polygon: blockPolygon(TUNAS_LESTARI, -210, 0, 260) },
+  { blok: 'Blok D4', kebun: 'Kebun Tunas Lestari', luas: 7.2, tanam: 2016, mandor: 'Pak Yusuf', status: 'Aktif', polygon: blockPolygon(TUNAS_LESTARI, 210, 40, 270, 6) },
+  { blok: 'Blok E1', kebun: 'Kebun Berkah Alam', luas: 8.9, tanam: 2015, mandor: 'Pak Bambang', status: 'Aktif', polygon: blockPolygon(BERKAH_ALAM, 0, 0, 300) },
 ]
 
 const JADWAL_PANEN_DUMMY = [
@@ -131,6 +178,8 @@ const STATUS_BLOK_DUMMY = [
 ]
 
 const STATUS_FILTERS = ['Semua Status', 'Aktif', 'Perlu Perhatian', 'Replanting']
+const STATUS_OPTIONS = ['Aktif', 'Perlu Perhatian', 'Replanting', 'Non-aktif']
+const BLOK_FORM_DEFAULT = { blok: '', kebun: '', luas: '', tanam: String(new Date().getFullYear()), mandor: '', status: 'Aktif' }
 
 type SortKey = 'blok' | 'kebun' | 'luas' | 'tanam' | 'status'
 
@@ -181,12 +230,86 @@ export function KebunPage() {
   const [query, setQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState(STATUS_FILTERS[0])
   const [sort, setSort] = useState<{ key: SortKey; direction: 'asc' | 'desc' }>({ key: 'blok', direction: 'asc' })
+  const [view, setView] = useState<'daftar' | 'peta'>('daftar')
+  const [drawingForBlok, setDrawingForBlok] = useState<string | null>(null)
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [form, setForm] = useState(BLOK_FORM_DEFAULT)
 
-  const STATS = seedData(STATS_DUMMY, STATS_EMPTY)
-  const BLOK_LAHAN = seedData(BLOK_LAHAN_DUMMY, [] as typeof BLOK_LAHAN_DUMMY)
+  const [BLOK_LAHAN, setBlokLahan] = usePersistedState<BlokLahan[]>('blok_lahan', () => seedData(BLOK_LAHAN_DUMMY, []))
   const JADWAL_PANEN = seedData(JADWAL_PANEN_DUMMY, [] as typeof JADWAL_PANEN_DUMMY)
   const BIAYA_PERAWATAN = seedData(BIAYA_PERAWATAN_DUMMY, [] as typeof BIAYA_PERAWATAN_DUMMY)
-  const STATUS_BLOK = seedData(STATUS_BLOK_DUMMY, [] as typeof STATUS_BLOK_DUMMY)
+
+  const totalLuasReal = BLOK_LAHAN.reduce((sum, b) => sum + b.luas, 0)
+  const blokAktifReal = BLOK_LAHAN.filter((b) => b.status === 'Aktif').length
+  const kebunCountReal = new Set(BLOK_LAHAN.map((b) => b.kebun)).size
+  const STATS = seedData(STATS_DUMMY, [
+    { label: 'Total Luas Tanam', value: `${totalLuasReal.toLocaleString('id-ID')} Ha`, hint: kebunCountReal > 0 ? `${kebunCountReal} kebun` : 'Belum ada kebun', icon: Ruler },
+    { label: 'Blok Aktif', value: `${blokAktifReal} blok`, hint: BLOK_LAHAN.length > 0 ? `Dari ${BLOK_LAHAN.length} blok total` : 'Belum ada blok', icon: Sprout },
+    { label: 'Produksi Bulan Ini', value: '0 kg', hint: 'Dari seluruh blok', icon: BarChart3, tone: 'bg-sky-500/10 text-sky-600' },
+    { label: 'Siap Panen', value: '0 blok', hint: 'Belum ada jadwal panen', icon: CalendarClock, tone: 'bg-amber-500/10 text-amber-600' },
+  ] as StatCardProps[])
+
+  const statusBlokReal = useMemo(() => {
+    const counts: Record<string, number> = {}
+    for (const b of BLOK_LAHAN) counts[b.status] = (counts[b.status] ?? 0) + 1
+    const total = BLOK_LAHAN.length || 1
+    return Object.entries(counts).map(([label, value]) => ({
+      label,
+      value,
+      pct: Math.round((value / total) * 100),
+      color: STATUS_COLOR_VAR[label] ?? STATUS_COLOR_VAR['Non-aktif'],
+    }))
+  }, [BLOK_LAHAN])
+  const STATUS_BLOK = seedData(STATUS_BLOK_DUMMY, statusBlokReal)
+
+  const businessProfile = getBusinessProfile()
+  const HARGA_PERON = activeHargaPeron(businessProfile)
+  const [peronLocations, setPeronLocations] = usePersistedState<Record<string, LngLat>>('peron_locations', () =>
+    seedData(PERON_LOCATIONS_DUMMY, { 'Peron 1': KEBUN_CENTER }),
+  )
+  const [timbangan] = usePersistedState('timbangan', () => seedData(TIMBANGAN_DUMMY, []))
+  const todayStats = computeTodayStatsByPeron(timbangan)
+
+  const mapBloks: BlokMapData[] = BLOK_LAHAN
+  const mapPeron: PeronMapData[] = HARGA_PERON.map((h) => ({
+    peron: h.peron,
+    location: peronLocations[h.peron] ?? KEBUN_CENTER,
+    harga: h.harga,
+    netto: todayStats[h.peron]?.netto ?? 0,
+    transaksi: todayStats[h.peron]?.transaksi ?? 0,
+    belumLunas: todayStats[h.peron]?.belumLunas ?? 0,
+  }))
+  const firstPolygonCenter = BLOK_LAHAN.find((b) => b.polygon)?.polygon
+  const mapCenter: LngLat = firstPolygonCenter ? polygonCenter(firstPolygonCenter) : (mapPeron[0]?.location ?? KEBUN_CENTER)
+
+  function handlePolygonSaved(blokName: string, polygon: LngLat[]) {
+    setBlokLahan((prev) => prev.map((b) => (b.blok === blokName ? { ...b, polygon } : b)))
+    setDrawingForBlok(null)
+    toast.success(`Denah ${blokName} tersimpan`)
+  }
+
+  function handlePeronMoved(peronName: string, location: LngLat) {
+    setPeronLocations((prev) => ({ ...prev, [peronName]: location }))
+    toast.success(`Lokasi ${peronName} diperbarui di peta`)
+  }
+
+  function handleGambarDenah(blokName: string) {
+    setView('peta')
+    setDrawingForBlok(blokName)
+  }
+
+  function handleTambahBlok() {
+    const luas = Number(form.luas)
+    const tanam = Number(form.tanam)
+    if (!form.blok || !form.kebun || !luas || !tanam) {
+      toast.error('Lengkapi nama blok, kebun, luas, dan tahun tanam')
+      return
+    }
+    setBlokLahan((prev) => [...prev, { blok: form.blok, kebun: form.kebun, luas, tanam, mandor: form.mandor || '—', status: form.status }])
+    toast.success('Blok ditambahkan', { description: `Gambar denahnya di Peta Kebun kapan saja lewat menu aksi.` })
+    setForm(BLOK_FORM_DEFAULT)
+    setDialogOpen(false)
+  }
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -205,7 +328,7 @@ export function KebunPage() {
     })
 
     return sorted
-  }, [query, statusFilter, sort])
+  }, [query, statusFilter, sort, BLOK_LAHAN])
 
   function handleSort(key: SortKey) {
     setSort((prev) =>
@@ -224,10 +347,36 @@ export function KebunPage() {
             Data blok lahan, jadwal panen, dan biaya perawatan.
           </p>
         </div>
-        <Button onClick={() => notifyComingSoon('Tambah blok', 'Kebun')}>
-          <Plus />
-          Tambah Blok
-        </Button>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 rounded-lg bg-muted p-1">
+            <button
+              type="button"
+              onClick={() => setView('daftar')}
+              className={cn(
+                'flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium whitespace-nowrap transition-colors',
+                view === 'daftar' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              <List className="size-3.5" />
+              Daftar
+            </button>
+            <button
+              type="button"
+              onClick={() => setView('peta')}
+              className={cn(
+                'flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium whitespace-nowrap transition-colors',
+                view === 'peta' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              <MapIcon className="size-3.5" />
+              Peta Kebun
+            </button>
+          </div>
+          <Button onClick={() => setDialogOpen(true)}>
+            <Plus />
+            Tambah Blok
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -240,32 +389,58 @@ export function KebunPage() {
         <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3">
           <CardTitle className="flex items-center gap-2">
             <ListFilter className="size-4 text-primary" />
-            Data Blok Lahan
+            {view === 'daftar' ? 'Data Blok Lahan' : 'Peta Kebun'}
           </CardTitle>
-          <div className="flex items-center gap-2">
-            <Input
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Cari blok atau kebun..."
-              className="w-52"
-            />
-            <DropdownMenu>
-              <DropdownMenuTrigger render={<Button variant="outline"><Filter />Filter</Button>} />
-              <DropdownMenuContent align="end">
-                <DropdownMenuLabel>Status Blok</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                {STATUS_FILTERS.map((option) => (
-                  <DropdownMenuItem key={option} onClick={() => setStatusFilter(option)}>
-                    {option}
-                    {statusFilter === option && <Badge variant="secondary" className="ml-auto">Aktif</Badge>}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <span className="text-xs whitespace-nowrap text-muted-foreground">Menampilkan {rows.length} dari {BLOK_LAHAN.length} blok</span>
-          </div>
+          {view === 'daftar' ? (
+            <div className="flex items-center gap-2">
+              <Input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Cari blok atau kebun..."
+                className="w-52"
+              />
+              <DropdownMenu>
+                <DropdownMenuTrigger render={<Button variant="outline"><Filter />Filter</Button>} />
+                <DropdownMenuContent align="end">
+                  <DropdownMenuLabel>Status Blok</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {STATUS_FILTERS.map((option) => (
+                    <DropdownMenuItem key={option} onClick={() => setStatusFilter(option)}>
+                      {option}
+                      {statusFilter === option && <Badge variant="secondary" className="ml-auto">Aktif</Badge>}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <span className="text-xs whitespace-nowrap text-muted-foreground">Menampilkan {rows.length} dari {BLOK_LAHAN.length} blok</span>
+            </div>
+          ) : (
+            <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+              {Object.entries({ Aktif: '#1f5c43', 'Perlu Perhatian': '#d97706', Replanting: '#0284c7', 'Non-aktif': '#6b7568' }).map(
+                ([label, color]) => (
+                  <span key={label} className="flex items-center gap-1.5">
+                    <span className="size-2.5 rounded-full" style={{ backgroundColor: color }} />
+                    {label}
+                  </span>
+                ),
+              )}
+            </div>
+          )}
         </CardHeader>
-        <CardContent className="px-0">
+        <CardContent className={view === 'peta' ? '' : 'px-0'}>
+          {view === 'peta' ? (
+            <Suspense fallback={<div className="flex h-[520px] items-center justify-center text-sm text-muted-foreground">Memuat peta...</div>}>
+              <KebunMap
+                bloks={mapBloks}
+                peron={mapPeron}
+                center={mapCenter}
+                drawingForBlok={drawingForBlok}
+                onPolygonSaved={handlePolygonSaved}
+                onCancelDrawing={() => setDrawingForBlok(null)}
+                onPeronMoved={handlePeronMoved}
+              />
+            </Suspense>
+          ) : (
           <Table>
             <TableHeader>
               <TableRow>
@@ -316,12 +491,22 @@ export function KebunPage() {
                             <Eye />
                             Lihat Detail
                           </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleGambarDenah(row.blok)}>
+                            <MapPin />
+                            {row.polygon ? 'Gambar Ulang Denah' : 'Gambar Denah di Peta'}
+                          </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => notifyComingSoon('Edit blok', row.blok)}>
                             <Pencil />
                             Edit
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem variant="destructive" onClick={() => notifyComingSoon('Hapus blok', row.blok)}>
+                          <DropdownMenuItem
+                            variant="destructive"
+                            onClick={() => {
+                              setBlokLahan((prev) => prev.filter((b) => b.blok !== row.blok))
+                              toast.success(`${row.blok} dihapus`)
+                            }}
+                          >
                             <Trash2 />
                             Hapus
                           </DropdownMenuItem>
@@ -333,6 +518,7 @@ export function KebunPage() {
               )}
             </TableBody>
           </Table>
+          )}
         </CardContent>
       </Card>
 
@@ -434,6 +620,92 @@ export function KebunPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Tambah Blok Lahan</DialogTitle>
+            <DialogDescription>
+              Daftarkan blok baru, lalu gambar batas lahannya di Peta Kebun kapan saja.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="bl-blok">Nama Blok</Label>
+              <Input
+                id="bl-blok"
+                value={form.blok}
+                onChange={(event) => setForm((prev) => ({ ...prev, blok: event.target.value }))}
+                placeholder="Contoh: Blok F1"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="bl-kebun">Nama Kebun</Label>
+              <Input
+                id="bl-kebun"
+                value={form.kebun}
+                onChange={(event) => setForm((prev) => ({ ...prev, kebun: event.target.value }))}
+                placeholder="Contoh: Kebun Sukamaju"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="bl-luas">Perkiraan Luas (Ha)</Label>
+              <Input
+                id="bl-luas"
+                type="number"
+                inputMode="decimal"
+                value={form.luas}
+                onChange={(event) => setForm((prev) => ({ ...prev, luas: event.target.value }))}
+                placeholder="8.5"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="bl-tanam">Tahun Tanam</Label>
+              <Input
+                id="bl-tanam"
+                type="number"
+                inputMode="numeric"
+                value={form.tanam}
+                onChange={(event) => setForm((prev) => ({ ...prev, tanam: event.target.value }))}
+                placeholder="2020"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="bl-mandor">Mandor (opsional)</Label>
+              <Input
+                id="bl-mandor"
+                value={form.mandor}
+                onChange={(event) => setForm((prev) => ({ ...prev, mandor: event.target.value }))}
+                placeholder="Contoh: Pak Herman"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Status</Label>
+              <Select value={form.status} onValueChange={(value) => value && setForm((prev) => ({ ...prev, status: value }))}>
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {STATUS_OPTIONS.map((item) => (
+                    <SelectItem key={item} value={item}>
+                      {item}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDialogOpen(false)}>
+              Batal
+            </Button>
+            <Button onClick={handleTambahBlok}>
+              <Plus />
+              Simpan Blok
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

@@ -68,6 +68,7 @@ import {
 } from '@/components/ui/table'
 import { getBusinessProfile } from '@/lib/business'
 import { seedData } from '@/lib/dummy-mode'
+import { activeHargaPeron, TIMBANGAN_DUMMY } from '@/lib/dummy-peron'
 import { initials, rupiah, rupiahSingkat } from '@/lib/format'
 import { addToQueue, clearQueue, getQueue, type OfflineTimbangEntry } from '@/lib/offline-queue'
 import { generateNotaTimbangPdf } from '@/lib/pdf'
@@ -85,29 +86,12 @@ const HARGA_TBS_STAT = {
   trendColor: 'var(--color-amber-500)',
 }
 
-const TIMBANGAN_DUMMY = [
-  { waktu: '10:24', petani: 'Bapak Suroto', telepon: '0812-5566-7788', plat: 'KB 1234 XY', peron: 'Peron 1', bruto: 3200, tara: 860, netto: 2340, harga: 2450, status: 'Lunas' },
-  { waktu: '09:52', petani: 'Ibu Sari Wulandari', telepon: '0813-2233-4455', plat: 'KB 5678 AB', peron: 'Peron 2', bruto: 2850, tara: 720, netto: 2130, harga: 2450, status: 'Lunas' },
-  { waktu: '09:18', petani: 'Pak Agus Salim', telepon: '0821-9988-7766', plat: 'KB 9012 CD', peron: 'Peron 1', bruto: 4100, tara: 1050, netto: 3050, harga: 2450, status: 'Belum Lunas' },
-  { waktu: '08:45', petani: 'Pak Slamet Riyadi', telepon: '0852-1122-3344', plat: 'KB 3456 EF', peron: 'Peron 3', bruto: 1980, tara: 510, netto: 1470, harga: 2400, status: 'Lunas' },
-  { waktu: '08:12', petani: 'Bapak Suroto', telepon: '0812-5566-7788', plat: 'KB 1234 XY', peron: 'Peron 1', bruto: 2760, tara: 700, netto: 2060, harga: 2400, status: 'Lunas' },
-  { waktu: '07:40', petani: 'Ibu Ningsih', telepon: '0813-6677-8899', plat: 'KB 7788 GH', peron: 'Peron 2', bruto: 3500, tara: 890, netto: 2610, harga: 2400, status: 'Belum Lunas' },
-  { waktu: '07:15', petani: 'Pak Bambang', telepon: '0821-4455-6677', plat: 'KB 4455 IJ', peron: 'Peron 3', bruto: 2200, tara: 560, netto: 1640, harga: 2400, status: 'Lunas' },
-  { waktu: '07:03', petani: 'Pak Yusuf', telepon: '0812-3344-5566', plat: 'KB 6677 KL', peron: 'Peron 1', bruto: 3980, tara: 1020, netto: 2960, harga: 2400, status: 'Lunas' },
-]
-
 const HUTANG_PETANI_DUMMY = [
   { petani: 'Pak Agus Salim', telepon: '0821-9988-7766', sisa: 4200000, tanggal: '18 Sep 2026', jatuhTempo: '25 Sep 2026', tone: 'bg-primary/10 text-primary' },
   { petani: 'Ibu Ningsih', telepon: '0813-6677-8899', sisa: 6264000, tanggal: '17 Sep 2026', jatuhTempo: '24 Sep 2026', tone: 'bg-sky-500/10 text-sky-600' },
   { petani: 'Pak Bambang', telepon: '0821-4455-6677', sisa: 2750000, tanggal: '16 Sep 2026', jatuhTempo: '23 Sep 2026', tone: 'bg-amber-500/10 text-amber-600' },
   { petani: 'Pak Mulyono', telepon: '0852-7788-9900', sisa: 1850000, tanggal: '15 Sep 2026', jatuhTempo: '22 Sep 2026', tone: 'bg-violet-500/10 text-violet-600' },
   { petani: 'Pak Slamet Riyadi', telepon: '0852-1122-3344', sisa: 1200000, tanggal: '14 Sep 2026', jatuhTempo: '21 Sep 2026', tone: 'bg-rose-500/10 text-rose-600' },
-]
-
-const HARGA_PERON_DUMMY = [
-  { peron: 'Peron 1', harga: 2450, perubahan: 2 },
-  { peron: 'Peron 2', harga: 2450, perubahan: 2 },
-  { peron: 'Peron 3', harga: 2400, perubahan: 0 },
 ]
 
 const DISTRIBUSI_COLORS: Record<string, string> = {
@@ -142,10 +126,7 @@ export function PeronPage() {
   const [timbangan, setTimbangan] = usePersistedState('timbangan', () => seedData(TIMBANGAN_DUMMY, []))
 
   const businessProfile = getBusinessProfile()
-  const HARGA_PERON = seedData(
-    HARGA_PERON_DUMMY,
-    [{ peron: 'Peron 1', harga: businessProfile?.hargaTbsAwal ?? 0, perubahan: 0 }],
-  )
+  const HARGA_PERON = activeHargaPeron(businessProfile)
   const HUTANG_PETANI = seedData(HUTANG_PETANI_DUMMY, [])
 
   const [dialogOpen, setDialogOpen] = useState(false)
