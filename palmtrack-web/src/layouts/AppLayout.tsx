@@ -8,6 +8,7 @@ import {
   FileText,
   Home,
   LogOut,
+  Map as MapIcon,
   Search,
   Settings,
   Sprout,
@@ -59,6 +60,7 @@ const NAV_ITEMS = [
   { title: 'Dashboard', url: '/', icon: Home },
   { title: 'Peron', url: '/peron', icon: Truck },
   { title: 'Kebun', url: '/kebun', icon: Sprout },
+  { title: 'Peta Kebun', url: '/peta', icon: MapIcon },
   { title: 'Pekerja', url: '/pekerja', icon: Users },
   { title: 'Keuangan', url: '/keuangan', icon: Wallet },
   { title: 'Laporan', url: '/laporan', icon: FileText },
@@ -68,6 +70,7 @@ const NAV_ITEMS = [
 const BREADCRUMB_LABELS: Record<string, string> = {
   '/peron': 'Peron',
   '/kebun': 'Kebun',
+  '/peta': 'Peta Kebun',
   '/pekerja': 'Pekerja',
   '/keuangan': 'Keuangan',
   '/laporan': 'Laporan',
@@ -154,6 +157,7 @@ export function AppLayout() {
   const currentLabel =
     BREADCRUMB_LABELS[pathname] ??
     Object.entries(BREADCRUMB_LABELS).find(([path]) => pathname.startsWith(`${path}/`))?.[1]
+  const isFullBleed = pathname === '/peta' || pathname.startsWith('/peta/')
 
   const handleLogout = () => {
     logout()
@@ -386,7 +390,7 @@ export function AppLayout() {
             </DropdownMenu>
           </div>
         </header>
-        {currentLabel && (
+        {currentLabel && !isFullBleed && (
           <div className="flex items-center gap-1.5 px-6 pt-4 text-sm text-muted-foreground">
             <NavLink to="/" className="hover:text-foreground">
               Dashboard
@@ -395,7 +399,7 @@ export function AppLayout() {
             <span className="text-foreground">{currentLabel}</span>
           </div>
         )}
-        <main className="flex-1 bg-background p-6">
+        <main className={cn('flex-1 bg-background', isFullBleed ? 'overflow-hidden p-0' : 'p-6')}>
           <Outlet />
         </main>
       </SidebarInset>

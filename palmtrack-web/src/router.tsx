@@ -12,6 +12,7 @@ import { DetailArtikelPage } from '@/routes/panduan/DetailArtikel'
 import { PekerjaPage } from '@/routes/pekerja'
 import { PengaturanPage } from '@/routes/pengaturan'
 import { PeronPage } from '@/routes/peron'
+import { PetaKebunPage } from '@/routes/peta'
 
 export const router = createBrowserRouter(
   [
@@ -28,6 +29,7 @@ export const router = createBrowserRouter(
         { path: '/', element: <DashboardPage /> },
         { path: '/peron', element: <PeronPage /> },
         { path: '/kebun', element: <KebunPage /> },
+        { path: '/peta', element: <PetaKebunPage /> },
         { path: '/pekerja', element: <PekerjaPage /> },
         { path: '/keuangan', element: <KeuanganPage /> },
         { path: '/laporan', element: <LaporanPage /> },

@@ -1,6 +1,6 @@
 import MapboxDraw from '@mapbox/mapbox-gl-draw'
 import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css'
-import { MapPin, Pencil } from 'lucide-react'
+import { Home, MapPin, Pencil } from 'lucide-react'
 import mapboxgl from 'mapbox-gl'
 import 'mapbox-gl/dist/mapbox-gl.css'
 import { useEffect, useRef } from 'react'
@@ -14,6 +14,47 @@ const STATUS_COLOR: Record<string, string> = {
   'Perlu Perhatian': '#d97706',
   Replanting: '#0284c7',
   'Non-aktif': '#6b7568',
+}
+
+const PALM_PATTERN_ID = 'palmtrack-palm-pattern'
+
+/** A small tileable image of oil-palm silhouettes, used as a fill-pattern so block polygons read as plantation, not just colored zones. */
+function buildPalmPatternImage(): ImageData {
+  const size = 56
+  const canvas = document.createElement('canvas')
+  canvas.width = size
+  canvas.height = size
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return new ImageData(size, size)
+
+  ctx.strokeStyle = 'rgba(255,255,255,0.5)'
+  ctx.fillStyle = 'rgba(255,255,255,0.5)'
+  ctx.lineWidth = 1.3
+  ctx.lineCap = 'round'
+
+  function drawPalm(cx: number, baseY: number, scale: number) {
+    const trunkTopX = cx - 1.5 * scale
+    const trunkTopY = baseY - 7 * scale
+    ctx?.beginPath()
+    ctx?.moveTo(cx, baseY)
+    ctx?.quadraticCurveTo(cx - 0.5 * scale, baseY - 4 * scale, trunkTopX, trunkTopY)
+    ctx?.stroke()
+
+    for (const deg of [-75, -38, -5, 30, 65]) {
+      const rad = (deg * Math.PI) / 180
+      const len = 5.5 * scale
+      const endX = trunkTopX + Math.sin(rad) * len
+      const endY = trunkTopY - Math.cos(rad) * len * 0.55
+      ctx?.beginPath()
+      ctx?.moveTo(trunkTopX, trunkTopY)
+      ctx?.quadraticCurveTo(trunkTopX + Math.sin(rad) * len * 0.5, trunkTopY - len * 0.45, endX, endY)
+      ctx?.stroke()
+    }
+  }
+
+  drawPalm(14, 46, 1)
+  drawPalm(41, 20, 0.8)
+  return ctx.getImageData(0, 0, size, size)
 }
 
 export interface BlokMapData {
@@ -38,21 +79,44 @@ interface KebunMapProps {
   bloks: BlokMapData[]
   peron: PeronMapData[]
   center: LngLat
+  initialZoom?: number
   drawingForBlok: string | null
   onPolygonSaved: (blok: string, polygon: LngLat[]) => void
   onCancelDrawing: () => void
   onPeronMoved: (peron: string, location: LngLat) => void
+  kebunLocation?: LngLat
+  kebunName?: string
+  editingLocation?: boolean
+  onSetKebunLocation?: (location: LngLat) => void
+  onCancelEditLocation?: () => void
 }
 
 const BLOK_SOURCE_ID = 'palmtrack-bloks'
 
-export function KebunMap({ bloks, peron, center, drawingForBlok, onPolygonSaved, onCancelDrawing, onPeronMoved }: KebunMapProps) {
+export function KebunMap({
+  bloks,
+  peron,
+  center,
+  initialZoom = 15,
+  drawingForBlok,
+  onPolygonSaved,
+  onCancelDrawing,
+  onPeronMoved,
+  kebunLocation,
+  kebunName = 'Kebun Anda',
+  editingLocation = false,
+  onSetKebunLocation,
+  onCancelEditLocation,
+}: KebunMapProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<mapboxgl.Map | null>(null)
   const drawRef = useRef<MapboxDraw | null>(null)
   const markersRef = useRef<mapboxgl.Marker[]>([])
-  const callbacksRef = useRef({ onPolygonSaved, onCancelDrawing, onPeronMoved })
-  callbacksRef.current = { onPolygonSaved, onCancelDrawing, onPeronMoved }
+  const homeMarkerRef = useRef<mapboxgl.Marker | null>(null)
+  const editingLocationRef = useRef(editingLocation)
+  editingLocationRef.current = editingLocation
+  const callbacksRef = useRef({ onPolygonSaved, onCancelDrawing, onPeronMoved, onSetKebunLocation })
+  callbacksRef.current = { onPolygonSaved, onCancelDrawing, onPeronMoved, onSetKebunLocation }
 
   const token = import.meta.env.VITE_MAPBOX_TOKEN as string | undefined
 
@@ -66,10 +130,15 @@ export function KebunMap({ bloks, peron, center, drawingForBlok, onPolygonSaved,
       container: containerRef.current,
       style: 'mapbox://styles/mapbox/satellite-streets-v12',
       center,
-      zoom: 15,
+      zoom: initialZoom,
     })
     mapRef.current = map
-    map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), 'top-right')
+    // Bottom-right, not top-right — the page's own floating toolbar already occupies the top-right corner.
+    map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), 'bottom-right')
+    map.addControl(
+      new mapboxgl.GeolocateControl({ positionOptions: { enableHighAccuracy: true }, trackUserLocation: false }),
+      'bottom-right',
+    )
 
     const draw = new MapboxDraw({
       displayControlsDefault: false,
@@ -78,13 +147,28 @@ export function KebunMap({ bloks, peron, center, drawingForBlok, onPolygonSaved,
     map.addControl(draw)
     drawRef.current = draw
 
-    map.on('load', () => {
+    map.on('click', (event) => {
+      if (!editingLocationRef.current) return
+      callbacksRef.current.onSetKebunLocation?.([event.lngLat.lng, event.lngLat.lat])
+    })
+
+    // 'style.load' fires once the base style is visually ready, without waiting for every raster
+    // tile across the whole map to finish downloading — 'load' can lag far behind on a slow
+    // connection, which would otherwise delay showing the block polygons for no good reason.
+    map.once('style.load', () => {
+      map.addImage(PALM_PATTERN_ID, buildPalmPatternImage())
       map.addSource(BLOK_SOURCE_ID, { type: 'geojson', data: { type: 'FeatureCollection', features: [] } })
       map.addLayer({
         id: 'bloks-fill',
         type: 'fill',
         source: BLOK_SOURCE_ID,
-        paint: { 'fill-color': ['get', 'color'], 'fill-opacity': 0.35 },
+        paint: { 'fill-color': ['get', 'color'], 'fill-opacity': 0.4 },
+      })
+      map.addLayer({
+        id: 'bloks-pattern',
+        type: 'fill',
+        source: BLOK_SOURCE_ID,
+        paint: { 'fill-pattern': PALM_PATTERN_ID, 'fill-opacity': 0.85 },
       })
       map.addLayer({
         id: 'bloks-line',
@@ -105,6 +189,7 @@ export function KebunMap({ bloks, peron, center, drawingForBlok, onPolygonSaved,
       })
 
       map.on('click', 'bloks-fill', (event) => {
+        if (editingLocationRef.current) return
         const feature = event.features?.[0]
         if (!feature) return
         const props = (feature as unknown as { properties: Record<string, string> }).properties as {
@@ -138,6 +223,8 @@ export function KebunMap({ bloks, peron, center, drawingForBlok, onPolygonSaved,
     return () => {
       for (const marker of markersRef.current) marker.remove()
       markersRef.current = []
+      homeMarkerRef.current?.remove()
+      homeMarkerRef.current = null
       map.remove()
       mapRef.current = null
       drawRef.current = null
@@ -171,7 +258,7 @@ export function KebunMap({ bloks, peron, center, drawingForBlok, onPolygonSaved,
       })
     }
     if (map.isStyleLoaded()) apply()
-    else map.once('load', apply)
+    else map.once('style.load', apply)
   }, [bloks])
 
   // Sync peron markers.
@@ -207,35 +294,87 @@ export function KebunMap({ bloks, peron, center, drawingForBlok, onPolygonSaved,
     }
   }, [peron])
 
-  // Enter/exit draw mode for the block currently being outlined.
+  // Sync the kebun's own home marker (draggable once placed).
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map) return
+
+    if (!kebunLocation) {
+      homeMarkerRef.current?.remove()
+      homeMarkerRef.current = null
+      return
+    }
+
+    if (!homeMarkerRef.current) {
+      const el = document.createElement('div')
+      el.style.cssText =
+        'width:32px;height:32px;border-radius:9999px;background:#16231c;border:3px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px'
+      el.textContent = '🏠'
+
+      const marker = new mapboxgl.Marker({ element: el, draggable: true })
+        .setLngLat(kebunLocation)
+        .setPopup(new mapboxgl.Popup({ closeButton: false, offset: 18 }).setText(`Lokasi ${kebunName}`))
+        .addTo(map)
+
+      marker.on('dragend', () => {
+        const { lng, lat } = marker.getLngLat()
+        callbacksRef.current.onSetKebunLocation?.([lng, lat])
+      })
+
+      homeMarkerRef.current = marker
+    } else {
+      homeMarkerRef.current.setLngLat(kebunLocation)
+    }
+  }, [kebunLocation, kebunName])
+
+  // Toggle map cursor while the Bos is picking a new kebun location.
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map) return
+    map.getCanvas().style.cursor = editingLocation ? 'crosshair' : ''
+  }, [editingLocation])
+
+  // Enter/exit draw mode for the block currently being outlined. Deferred until the style has
+  // finished loading — arriving here already in draw mode (e.g. navigated straight from the Kebun
+  // page's "Gambar Denah" action) can otherwise call changeMode before Draw's internal layers exist,
+  // which silently swallows every click.
   useEffect(() => {
     const draw = drawRef.current
     const map = mapRef.current
     if (!draw || !map) return
 
     function handleCreate(event: { features: Array<{ geometry: { coordinates: LngLat[][] } }> }) {
+      // Don't deleteAll() here — Draw is mid-transition into direct_select for the feature we'd be
+      // deleting, and doing it synchronously in this handler throws. The drawingForBlok effect below
+      // clears it for us as soon as the parent flips drawingForBlok back to null.
       const coords = event.features[0]?.geometry.coordinates[0]
-      draw?.deleteAll()
       if (coords && drawingForBlok) callbacksRef.current.onPolygonSaved(drawingForBlok, coords)
     }
 
-    if (drawingForBlok) {
-      draw.deleteAll()
-      draw.changeMode('draw_polygon')
-      map.on('draw.create', handleCreate)
-    } else {
-      draw.deleteAll()
-      draw.changeMode('simple_select')
+    function apply() {
+      if (!draw || !map) return
+      if (drawingForBlok) {
+        draw.deleteAll()
+        draw.changeMode('draw_polygon')
+        map.on('draw.create', handleCreate)
+      } else {
+        draw.deleteAll()
+        draw.changeMode('simple_select')
+      }
     }
+
+    if (map.isStyleLoaded()) apply()
+    else map.once('style.load', apply)
 
     return () => {
       map.off('draw.create', handleCreate)
+      map.off('style.load', apply)
     }
   }, [drawingForBlok])
 
   if (!token) {
     return (
-      <div className="flex min-h-[420px] items-center justify-center rounded-xl border border-dashed border-border bg-muted/30">
+      <div className="flex h-full min-h-[420px] items-center justify-center rounded-xl border border-dashed border-border bg-muted/30">
         <EmptyState
           icon={MapPin}
           title="Peta belum dikonfigurasi"
@@ -246,8 +385,8 @@ export function KebunMap({ bloks, peron, center, drawingForBlok, onPolygonSaved,
   }
 
   return (
-    <div className="relative">
-      <div ref={containerRef} className="h-[520px] w-full overflow-hidden rounded-xl border border-border" />
+    <div className="relative h-full w-full">
+      <div ref={containerRef} className="h-full w-full overflow-hidden" />
       {drawingForBlok && (
         <div className="absolute top-3 left-3 flex items-center gap-2 rounded-lg bg-card px-3 py-2 text-xs shadow-md ring-1 ring-border">
           <Pencil className="size-3.5 text-primary" />
@@ -256,6 +395,15 @@ export function KebunMap({ bloks, peron, center, drawingForBlok, onPolygonSaved,
           </span>
           <Button size="sm" variant="outline" className="h-6 px-2 text-xs" onClick={onCancelDrawing}>
             Batal
+          </Button>
+        </div>
+      )}
+      {editingLocation && (
+        <div className="absolute top-3 left-3 flex items-center gap-2 rounded-lg bg-card px-3 py-2 text-xs shadow-md ring-1 ring-border">
+          <Home className="size-3.5 text-primary" />
+          <span>Klik titik di peta untuk menetapkan lokasi {kebunName}, atau geser pin yang sudah ada.</span>
+          <Button size="sm" variant="outline" className="h-6 px-2 text-xs" onClick={onCancelEditLocation}>
+            Selesai
           </Button>
         </div>
       )}

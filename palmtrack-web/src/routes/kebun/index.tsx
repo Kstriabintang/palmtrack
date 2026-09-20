@@ -10,7 +10,6 @@ import {
   Eye,
   Filter,
   Fuel,
-  List,
   ListFilter,
   Map as MapIcon,
   MapPin,
@@ -24,10 +23,10 @@ import {
   Users,
   Wrench,
 } from 'lucide-react'
-import { lazy, Suspense, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { DonutSummary } from '@/components/donut-summary'
-import type { BlokMapData, PeronMapData } from '@/components/kebun-map'
 import { StatCard } from '@/components/stat-card'
 import { StatusBadge } from '@/components/status-badge'
 import { Badge } from '@/components/ui/badge'
@@ -68,34 +67,10 @@ import {
 } from '@/components/ui/table'
 import { EmptyState } from '@/components/empty-state'
 import type { StatCardProps } from '@/components/stat-card'
-import { getBusinessProfile } from '@/lib/business'
 import { seedData } from '@/lib/dummy-mode'
-import { activeHargaPeron, computeTodayStatsByPeron, KEBUN_CENTER, PERON_LOCATIONS_DUMMY, TIMBANGAN_DUMMY } from '@/lib/dummy-peron'
+import { STATUS_COLOR_VAR, useBlokLahan } from '@/lib/dummy-kebun'
 import { rupiah } from '@/lib/format'
-import { type LngLat, offsetPoint, polygonCenter, rectPolygon } from '@/lib/geo'
-import { usePersistedState } from '@/lib/use-persisted-state'
 import { cn } from '@/lib/utils'
-
-// mapbox-gl is a ~1MB library — only fetch it once the Peta Kebun tab is opened.
-const KebunMap = lazy(() => import('@/components/kebun-map').then((m) => ({ default: m.KebunMap })))
-
-// Indragiri Hilir, Riau — clustered around Tembilahan.
-const SUKAMAJU: LngLat = [103.145, -0.325]
-const MAKMUR_JAYA: LngLat = [103.16, -0.328]
-const HARAPAN_SAWIT: LngLat = [103.14, -0.338]
-const TUNAS_LESTARI: LngLat = [103.158, -0.342]
-const BERKAH_ALAM: LngLat = [103.148, -0.35]
-
-function blockPolygon(cluster: LngLat, dxM: number, dyM: number, sideM: number, rotationDeg = 0): LngLat[] {
-  return rectPolygon(offsetPoint(cluster, dxM, dyM), sideM, sideM, rotationDeg)
-}
-
-const STATUS_COLOR_VAR: Record<string, string> = {
-  Aktif: 'var(--color-primary)',
-  'Perlu Perhatian': 'var(--color-amber-500)',
-  Replanting: 'var(--color-sky-500)',
-  'Non-aktif': 'var(--color-muted-foreground)',
-}
 
 const STATS_DUMMY: StatCardProps[] = [
   {
@@ -132,29 +107,6 @@ const STATS_DUMMY: StatCardProps[] = [
     trend: [3, 4, 4, 5, 5, 6, 6],
     trendColor: 'var(--color-amber-500)',
   },
-]
-
-interface BlokLahan {
-  blok: string
-  kebun: string
-  luas: number
-  tanam: number
-  mandor: string
-  status: string
-  polygon?: LngLat[]
-}
-
-const BLOK_LAHAN_DUMMY: BlokLahan[] = [
-  { blok: 'Blok A1', kebun: 'Kebun Sukamaju', luas: 8.5, tanam: 2018, mandor: 'Pak Herman', status: 'Aktif', polygon: blockPolygon(SUKAMAJU, -400, 0, 290) },
-  { blok: 'Blok A2', kebun: 'Kebun Sukamaju', luas: 7.8, tanam: 2018, mandor: 'Pak Herman', status: 'Aktif', polygon: blockPolygon(SUKAMAJU, 0, 20, 280, 8) },
-  { blok: 'Blok A3', kebun: 'Kebun Sukamaju', luas: 9.2, tanam: 2019, mandor: 'Pak Herman', status: 'Aktif', polygon: blockPolygon(SUKAMAJU, 400, 50, 300, -6) },
-  { blok: 'Blok B1', kebun: 'Kebun Makmur Jaya', luas: 8.0, tanam: 2017, mandor: 'Pak Yusuf', status: 'Aktif', polygon: blockPolygon(MAKMUR_JAYA, -220, 0, 285) },
-  { blok: 'Blok B2', kebun: 'Kebun Makmur Jaya', luas: 7.5, tanam: 2017, mandor: 'Pak Yusuf', status: 'Aktif', polygon: blockPolygon(MAKMUR_JAYA, 220, 30, 275, 10) },
-  { blok: 'Blok C1', kebun: 'Kebun Harapan Sawit', luas: 10.1, tanam: 2020, mandor: 'Pak Herman', status: 'Aktif', polygon: blockPolygon(HARAPAN_SAWIT, -230, 0, 320) },
-  { blok: 'Blok C2', kebun: 'Kebun Harapan Sawit', luas: 9.4, tanam: 2020, mandor: 'Pak Herman', status: 'Perlu Perhatian', polygon: blockPolygon(HARAPAN_SAWIT, 230, -20, 310, -8) },
-  { blok: 'Blok D3', kebun: 'Kebun Tunas Lestari', luas: 6.8, tanam: 2022, mandor: 'Pak Slamet', status: 'Replanting', polygon: blockPolygon(TUNAS_LESTARI, -210, 0, 260) },
-  { blok: 'Blok D4', kebun: 'Kebun Tunas Lestari', luas: 7.2, tanam: 2016, mandor: 'Pak Yusuf', status: 'Aktif', polygon: blockPolygon(TUNAS_LESTARI, 210, 40, 270, 6) },
-  { blok: 'Blok E1', kebun: 'Kebun Berkah Alam', luas: 8.9, tanam: 2015, mandor: 'Pak Bambang', status: 'Aktif', polygon: blockPolygon(BERKAH_ALAM, 0, 0, 300) },
 ]
 
 const JADWAL_PANEN_DUMMY = [
@@ -228,15 +180,14 @@ function SortableHead({
 }
 
 export function KebunPage() {
+  const navigate = useNavigate()
   const [query, setQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState(STATUS_FILTERS[0])
   const [sort, setSort] = useState<{ key: SortKey; direction: 'asc' | 'desc' }>({ key: 'blok', direction: 'asc' })
-  const [view, setView] = useState<'daftar' | 'peta'>('daftar')
-  const [drawingForBlok, setDrawingForBlok] = useState<string | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [form, setForm] = useState(BLOK_FORM_DEFAULT)
 
-  const [BLOK_LAHAN, setBlokLahan] = usePersistedState<BlokLahan[]>('blok_lahan', () => seedData(BLOK_LAHAN_DUMMY, []))
+  const [BLOK_LAHAN, setBlokLahan] = useBlokLahan()
   const JADWAL_PANEN = seedData(JADWAL_PANEN_DUMMY, [] as typeof JADWAL_PANEN_DUMMY)
   const BIAYA_PERAWATAN = seedData(BIAYA_PERAWATAN_DUMMY, [] as typeof BIAYA_PERAWATAN_DUMMY)
 
@@ -263,40 +214,8 @@ export function KebunPage() {
   }, [BLOK_LAHAN])
   const STATUS_BLOK = seedData(STATUS_BLOK_DUMMY, statusBlokReal)
 
-  const businessProfile = getBusinessProfile()
-  const HARGA_PERON = activeHargaPeron(businessProfile)
-  const [peronLocations, setPeronLocations] = usePersistedState<Record<string, LngLat>>('peron_locations', () =>
-    seedData(PERON_LOCATIONS_DUMMY, { 'Peron 1': KEBUN_CENTER }),
-  )
-  const [timbangan] = usePersistedState('timbangan', () => seedData(TIMBANGAN_DUMMY, []))
-  const todayStats = computeTodayStatsByPeron(timbangan)
-
-  const mapBloks: BlokMapData[] = BLOK_LAHAN
-  const mapPeron: PeronMapData[] = HARGA_PERON.map((h) => ({
-    peron: h.peron,
-    location: peronLocations[h.peron] ?? KEBUN_CENTER,
-    harga: h.harga,
-    netto: todayStats[h.peron]?.netto ?? 0,
-    transaksi: todayStats[h.peron]?.transaksi ?? 0,
-    belumLunas: todayStats[h.peron]?.belumLunas ?? 0,
-  }))
-  const firstPolygonCenter = BLOK_LAHAN.find((b) => b.polygon)?.polygon
-  const mapCenter: LngLat = firstPolygonCenter ? polygonCenter(firstPolygonCenter) : (mapPeron[0]?.location ?? KEBUN_CENTER)
-
-  function handlePolygonSaved(blokName: string, polygon: LngLat[]) {
-    setBlokLahan((prev) => prev.map((b) => (b.blok === blokName ? { ...b, polygon } : b)))
-    setDrawingForBlok(null)
-    toast.success(`Denah ${blokName} tersimpan`)
-  }
-
-  function handlePeronMoved(peronName: string, location: LngLat) {
-    setPeronLocations((prev) => ({ ...prev, [peronName]: location }))
-    toast.success(`Lokasi ${peronName} diperbarui di peta`)
-  }
-
   function handleGambarDenah(blokName: string) {
-    setView('peta')
-    setDrawingForBlok(blokName)
+    navigate('/peta', { state: { drawBlok: blokName } })
   }
 
   function handleTambahBlok() {
@@ -349,30 +268,10 @@ export function KebunPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1 rounded-lg bg-muted p-1">
-            <button
-              type="button"
-              onClick={() => setView('daftar')}
-              className={cn(
-                'flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium whitespace-nowrap transition-colors',
-                view === 'daftar' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground',
-              )}
-            >
-              <List className="size-3.5" />
-              Daftar
-            </button>
-            <button
-              type="button"
-              onClick={() => setView('peta')}
-              className={cn(
-                'flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium whitespace-nowrap transition-colors',
-                view === 'peta' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground',
-              )}
-            >
-              <MapIcon className="size-3.5" />
-              Peta Kebun
-            </button>
-          </div>
+          <Button variant="outline" onClick={() => navigate('/peta')}>
+            <MapIcon />
+            Peta Kebun
+          </Button>
           <Button onClick={() => setDialogOpen(true)}>
             <Plus />
             Tambah Blok
@@ -390,58 +289,32 @@ export function KebunPage() {
         <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3">
           <CardTitle className="flex items-center gap-2">
             <ListFilter className="size-4 text-primary" />
-            {view === 'daftar' ? 'Data Blok Lahan' : 'Peta Kebun'}
+            Data Blok Lahan
           </CardTitle>
-          {view === 'daftar' ? (
-            <div className="flex items-center gap-2">
-              <Input
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="Cari blok atau kebun..."
-                className="w-52"
-              />
-              <DropdownMenu>
-                <DropdownMenuTrigger render={<Button variant="outline"><Filter />Filter</Button>} />
-                <DropdownMenuContent align="end">
-                  <DropdownMenuLabel>Status Blok</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  {STATUS_FILTERS.map((option) => (
-                    <DropdownMenuItem key={option} onClick={() => setStatusFilter(option)}>
-                      {option}
-                      {statusFilter === option && <Badge variant="secondary" className="ml-auto">Aktif</Badge>}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-              <span className="text-xs whitespace-nowrap text-muted-foreground">Menampilkan {rows.length} dari {BLOK_LAHAN.length} blok</span>
-            </div>
-          ) : (
-            <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-              {Object.entries({ Aktif: '#1f5c43', 'Perlu Perhatian': '#d97706', Replanting: '#0284c7', 'Non-aktif': '#6b7568' }).map(
-                ([label, color]) => (
-                  <span key={label} className="flex items-center gap-1.5">
-                    <span className="size-2.5 rounded-full" style={{ backgroundColor: color }} />
-                    {label}
-                  </span>
-                ),
-              )}
-            </div>
-          )}
+          <div className="flex items-center gap-2">
+            <Input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Cari blok atau kebun..."
+              className="w-52"
+            />
+            <DropdownMenu>
+              <DropdownMenuTrigger render={<Button variant="outline"><Filter />Filter</Button>} />
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel>Status Blok</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {STATUS_FILTERS.map((option) => (
+                  <DropdownMenuItem key={option} onClick={() => setStatusFilter(option)}>
+                    {option}
+                    {statusFilter === option && <Badge variant="secondary" className="ml-auto">Aktif</Badge>}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <span className="text-xs whitespace-nowrap text-muted-foreground">Menampilkan {rows.length} dari {BLOK_LAHAN.length} blok</span>
+          </div>
         </CardHeader>
-        <CardContent className={view === 'peta' ? '' : 'px-0'}>
-          {view === 'peta' ? (
-            <Suspense fallback={<div className="flex h-[520px] items-center justify-center text-sm text-muted-foreground">Memuat peta...</div>}>
-              <KebunMap
-                bloks={mapBloks}
-                peron={mapPeron}
-                center={mapCenter}
-                drawingForBlok={drawingForBlok}
-                onPolygonSaved={handlePolygonSaved}
-                onCancelDrawing={() => setDrawingForBlok(null)}
-                onPeronMoved={handlePeronMoved}
-              />
-            </Suspense>
-          ) : (
+        <CardContent className="px-0">
           <Table>
             <TableHeader>
               <TableRow>
@@ -519,7 +392,6 @@ export function KebunPage() {
               )}
             </TableBody>
           </Table>
-          )}
         </CardContent>
       </Card>
 
