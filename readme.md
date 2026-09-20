@@ -47,7 +47,7 @@ PalmTrack adalah sistem manajemen sawit berbasis web yang dirancang khusus untuk
 
 ### 🌿 Manajemen Kebun
 - Data blok/lahan: nama, luas (Ha), tahun tanam, lokasi
-- **Peta Kebun** — gambar batas lahan tiap blok langsung di atas citra satelit (Mapbox GL), berwarna sesuai status, dengan titik lokasi peron yang bisa diklik untuk lihat data hari ini secara langsung
+- **Peta Kebun** — modul peta tersendiri, tampilan full-bleed layar penuh (dengan toggle fullscreen browser sungguhan): gambar batas lahan tiap blok langsung di atas citra satelit (Mapbox GL), berwarna sesuai status dan bertekstur pola sawit di dalam tiap blok, titik lokasi peron yang bisa diklik untuk lihat data hari ini secara langsung, serta tiap Bos bisa menandai sendiri lokasi kebunnya di peta
 - Jadwal panen per blok & tracking realisasi vs rencana
 - Input hasil panen: jumlah janjang, estimasi kg, mandor penanggung jawab
 - Pencatatan biaya perawatan: pupuk, herbisida, dll per blok
@@ -93,6 +93,12 @@ Gambaran alur data end-to-end, dari lapangan sampai laporan:
 ## 📸 Preview
 
 > Diambil langsung dari `palmtrack-web` yang sedang berjalan — data yang tampil adalah data contoh/dummy (Phase 1, frontend belum tersambung ke backend sungguhan). Belum semua halaman ada di sini; folder [`docs/screenshots/`](docs/screenshots) akan terus bertambah seiring pengembangan.
+
+**Peta Kebun** — denah tiap blok digambar langsung di atas citra satelit sungguhan (Mapbox GL), lengkap dengan pola sawit di dalam setiap blok dan lokasi peron real-time yang bisa diklik:
+
+<p align="center">
+  <img src="docs/screenshots/peta.jpg" alt="Peta Kebun — denah blok sawit di atas citra satelit, lengkap dengan lokasi peron" width="100%" />
+</p>
 
 <table>
 <tr>
@@ -467,7 +473,7 @@ Laporan
 - [x] Modul Pengaturan (profil, notifikasi, keamanan, sistem, status lisensi)
 - [x] Login berbasis kunci lisensi (bukan email/password), dengan masa berlaku otomatis
 - [x] Akun baru mulai kosong (bukan data contoh) + onboarding singkat + empty state di tiap modul
-- [x] Peta Kebun — gambar denah/batas lahan per blok di atas citra satelit (Mapbox GL), lokasi peron real-time
+- [x] Peta Kebun — modul tersendiri full-bleed di atas citra satelit (Mapbox GL): gambar denah/batas lahan per blok, lokasi peron real-time, tiap Bos bisa set lokasi kebunnya sendiri
 - [x] Integrasi WhatsApp untuk nota & pengingat pembayaran (deep link `wa.me`, bukan simulasi)
 - [x] Mode offline untuk Input Timbang — antrian lokal & auto-sync saat online kembali
 - [x] Cetak Nota Timbang & Laporan (Bulanan/Tahunan) sebagai PDF bermerek — bukan placeholder
