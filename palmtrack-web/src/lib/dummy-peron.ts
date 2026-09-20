@@ -38,13 +38,13 @@ export function activeHargaPeron(businessProfile: BusinessProfile | null) {
   return seedData(HARGA_PERON_DUMMY, [{ peron: 'Peron 1', harga: businessProfile?.hargaTbsAwal ?? 0, perubahan: 0 }])
 }
 
-/** Roughly Kubu Raya / Ambawang, West Kalimantan — matches the PKS names already used in the dummy data. */
-export const KEBUN_CENTER: LngLat = [109.3, -0.12]
+/** Roughly Tembilahan, Indragiri Hilir, Riau — matches the PKS names already used in the dummy data. */
+export const KEBUN_CENTER: LngLat = [103.15, -0.33]
 
 export const PERON_LOCATIONS_DUMMY: Record<string, LngLat> = {
-  'Peron 1': [109.298, -0.121],
-  'Peron 2': [109.305, -0.114],
-  'Peron 3': [109.292, -0.108],
+  'Peron 1': [103.148, -0.331],
+  'Peron 2': [103.155, -0.324],
+  'Peron 3': [103.142, -0.318],
 }
 
 export interface PeronTodayStats {

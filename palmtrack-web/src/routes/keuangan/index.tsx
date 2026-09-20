@@ -492,7 +492,7 @@ export function KeuanganPage() {
                 id="tr-keterangan"
                 value={form.keterangan}
                 onChange={(event) => setForm((prev) => ({ ...prev, keterangan: event.target.value }))}
-                placeholder="Contoh: Setoran PKS Ambawang"
+                placeholder="Contoh: Setoran PKS Tembilahan"
               />
             </div>
           </div>

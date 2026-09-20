@@ -98,7 +98,7 @@ const INITIAL_NOTIFICATIONS: NotificationItem[] = [
     icon: Wallet,
     tone: 'bg-primary/10 text-primary',
     title: 'Pembayaran diterima',
-    description: 'Setoran PKS Ambawang Rp 42.500.000 telah dikonfirmasi.',
+    description: 'Setoran PKS Tembilahan Rp 42.500.000 telah dikonfirmasi.',
     time: '10 menit lalu',
     unread: true,
   },

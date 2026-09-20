@@ -79,11 +79,12 @@ import { cn } from '@/lib/utils'
 // mapbox-gl is a ~1MB library — only fetch it once the Peta Kebun tab is opened.
 const KebunMap = lazy(() => import('@/components/kebun-map').then((m) => ({ default: m.KebunMap })))
 
-const SUKAMAJU: LngLat = [109.295, -0.115]
-const MAKMUR_JAYA: LngLat = [109.31, -0.118]
-const HARAPAN_SAWIT: LngLat = [109.29, -0.128]
-const TUNAS_LESTARI: LngLat = [109.308, -0.132]
-const BERKAH_ALAM: LngLat = [109.298, -0.14]
+// Indragiri Hilir, Riau — clustered around Tembilahan.
+const SUKAMAJU: LngLat = [103.145, -0.325]
+const MAKMUR_JAYA: LngLat = [103.16, -0.328]
+const HARAPAN_SAWIT: LngLat = [103.14, -0.338]
+const TUNAS_LESTARI: LngLat = [103.158, -0.342]
+const BERKAH_ALAM: LngLat = [103.148, -0.35]
 
 function blockPolygon(cluster: LngLat, dxM: number, dyM: number, sideM: number, rotationDeg = 0): LngLat[] {
   return rectPolygon(offsetPoint(cluster, dxM, dyM), sideM, sideM, rotationDeg)
