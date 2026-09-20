@@ -277,15 +277,17 @@ export async function generateNotaTimbangPdf(data: NotaTimbangData) {
   y = (doc as DocWithAutoTable).lastAutoTable.finalY + 10
 
   const isLunas = data.status.toLowerCase() === 'lunas'
-  const badgeColor = isLunas ? GREEN : ([201, 138, 46] as [number, number, number])
-  doc.setFillColor(badgeColor[0], badgeColor[1], badgeColor[2])
-  doc.setDrawColor(badgeColor[0], badgeColor[1], badgeColor[2])
+  // Matches the app's status-badge.tsx convention: a light tint of the
+  // status color as fill, with the solid color as text — not a solid chip.
+  const badgeTint: [number, number, number] = isLunas ? [234, 239, 236] : [254, 240, 232]
+  const badgeText_: [number, number, number] = isLunas ? GREEN : [217, 119, 6]
   const badgeText = `Status Pembayaran: ${data.status.toUpperCase()}`
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(9)
   const badgeWidth = doc.getTextWidth(badgeText) + 10
+  doc.setFillColor(...badgeTint)
   doc.roundedRect(MARGIN, y, badgeWidth, 8, 2, 2, 'F')
-  doc.setTextColor(255, 255, 255)
+  doc.setTextColor(...badgeText_)
   doc.text(badgeText, MARGIN + 5, y + 5.5)
 
   y += 16
