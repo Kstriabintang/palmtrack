@@ -41,6 +41,7 @@ jobs:
         working-directory: palmtrack-web
         env:
           VITE_BASE_PATH: /palmtrack/
+          VITE_MAPBOX_TOKEN: ${{ secrets.MAPBOX_TOKEN }}
         run: pnpm build
 
       - name: Upload artifact

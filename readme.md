@@ -47,6 +47,7 @@ PalmTrack adalah sistem manajemen sawit berbasis web yang dirancang khusus untuk
 
 ### 🌿 Manajemen Kebun
 - Data blok/lahan: nama, luas (Ha), tahun tanam, lokasi
+- **Peta Kebun** — gambar batas lahan tiap blok langsung di atas citra satelit (Mapbox GL), berwarna sesuai status, dengan titik lokasi peron yang bisa diklik untuk lihat data hari ini secara langsung
 - Jadwal panen per blok & tracking realisasi vs rencana
 - Input hasil panen: jumlah janjang, estimasi kg, mandor penanggung jawab
 - Pencatatan biaya perawatan: pupuk, herbisida, dll per blok
@@ -128,6 +129,7 @@ Gambaran alur data end-to-end, dari lapangan sampai laporan:
 | State Management | Zustand |
 | Data Fetching | TanStack Query (React Query v5) |
 | Charts | Recharts |
+| Peta / GIS | Mapbox GL JS + Mapbox GL Draw |
 | Form Handling | React Hook Form + Zod |
 | PDF Client-side | jsPDF + jspdf-autotable |
 | Table | TanStack Table v9 |
@@ -465,6 +467,7 @@ Laporan
 - [x] Modul Pengaturan (profil, notifikasi, keamanan, sistem, status lisensi)
 - [x] Login berbasis kunci lisensi (bukan email/password), dengan masa berlaku otomatis
 - [x] Akun baru mulai kosong (bukan data contoh) + onboarding singkat + empty state di tiap modul
+- [x] Peta Kebun — gambar denah/batas lahan per blok di atas citra satelit (Mapbox GL), lokasi peron real-time
 - [x] Integrasi WhatsApp untuk nota & pengingat pembayaran (deep link `wa.me`, bukan simulasi)
 - [x] Mode offline untuk Input Timbang — antrian lokal & auto-sync saat online kembali
 - [x] Cetak Nota Timbang & Laporan (Bulanan/Tahunan) sebagai PDF bermerek — bukan placeholder
