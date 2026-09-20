@@ -23,7 +23,7 @@ const PAGE_HEIGHT = 297
 const MARGIN = 14
 const CONTENT_WIDTH = PAGE_WIDTH - MARGIN * 2
 const FOOTER_Y = 284
-const OVERFLOW_LIMIT = 276
+const OVERFLOW_LIMIT = 281
 const FRAME_TOP = 46
 
 let cachedLogo: string | null = null
@@ -193,6 +193,31 @@ function drawSignatureBlock(doc: jsPDF, y: number, leftLabel: string, rightLabel
   doc.setTextColor(...GREEN_DARK)
   doc.text(leftLabel, MARGIN + sigWidth / 2, y + 5, { align: 'center' })
   doc.text(rightLabel, PAGE_WIDTH - MARGIN - sigWidth / 2, y + 5, { align: 'center' })
+}
+
+/** Single signatory block for reports — this app has one owner-user, not a preparer/approver pair. */
+function drawOwnerSignature(doc: jsPDF, y: number, namaUsaha: string) {
+  const sigWidth = 65
+  const x = PAGE_WIDTH - MARGIN - sigWidth
+
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(8.5)
+  doc.setTextColor(...MUTED)
+  const tanggal = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
+  doc.text(tanggal, x + sigWidth, y, { align: 'right' })
+
+  doc.setDrawColor(...MUTED)
+  doc.setLineWidth(0.2)
+  doc.line(x, y + 14, x + sigWidth, y + 14)
+
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(9)
+  doc.setTextColor(...GREEN_DARK)
+  doc.text('Pemilik Usaha', x + sigWidth / 2, y + 18.5, { align: 'center' })
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(7.5)
+  doc.setTextColor(...MUTED)
+  doc.text(namaUsaha, x + sigWidth / 2, y + 22.5, { align: 'center' })
 }
 
 export interface NotaTimbangData {
@@ -437,8 +462,8 @@ export async function generateLaporanPdf(data: LaporanPdfData) {
     y += 6.5
   }
 
-  y = ensureSpace(doc, y + 8, 16)
-  drawSignatureBlock(doc, y, 'Disiapkan oleh', 'Disetujui oleh')
+  y = ensureSpace(doc, y + 6, 24)
+  drawOwnerSignature(doc, y, businessName())
 
   drawFrame(doc)
   drawWatermark(doc, logo)
