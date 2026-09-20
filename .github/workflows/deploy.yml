@@ -1,8 +1,13 @@
 name: Deploy palmtrack-web to GitHub Pages
 
+# Source lives in the private Kstriabintang/palmtrack-src repo — this repo only holds docs,
+# screenshots and the deploy pipeline. `repository_dispatch` lets the private repo trigger a
+# rebuild whenever it gets a new commit (see its own .github/workflows/notify-deploy.yml).
 on:
   push:
     branches: [main]
+  repository_dispatch:
+    types: [source-updated]
   workflow_dispatch:
 
 permissions:
@@ -18,8 +23,12 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout private source
         uses: actions/checkout@v4
+        with:
+          repository: Kstriabintang/palmtrack-src
+          token: ${{ secrets.PRIVATE_SOURCE_PAT }}
+          path: source
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -31,14 +40,14 @@ jobs:
         with:
           node-version: 20
           cache: pnpm
-          cache-dependency-path: palmtrack-web/pnpm-lock.yaml
+          cache-dependency-path: source/palmtrack-web/pnpm-lock.yaml
 
       - name: Install dependencies
-        working-directory: palmtrack-web
+        working-directory: source/palmtrack-web
         run: pnpm install --frozen-lockfile
 
       - name: Build
-        working-directory: palmtrack-web
+        working-directory: source/palmtrack-web
         env:
           VITE_BASE_PATH: /palmtrack/
           VITE_MAPBOX_TOKEN: ${{ secrets.MAPBOX_TOKEN }}
@@ -47,7 +56,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: palmtrack-web/dist
+          path: source/palmtrack-web/dist
 
   deploy:
     needs: build

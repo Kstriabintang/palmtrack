@@ -11,3 +11,7 @@ Thumbs.db
 # Environment
 .env
 *.local
+
+# Source code lives in the private Kstriabintang/palmtrack-src repo — this repo only ships
+# docs, screenshots and the deploy pipeline. Keep the folder for local dev, never commit it here.
+palmtrack-web/
