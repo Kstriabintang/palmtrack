@@ -1,0 +1,27 @@
+import { create } from 'zustand'
+import type { Role, User } from '@/types'
+
+interface AuthState {
+  user: User | null
+  token: string | null
+  setAuth: (user: User, token: string) => void
+  logout: () => void
+  hasRole: (...roles: Role[]) => boolean
+}
+
+export const useAuthStore = create<AuthState>((set, get) => ({
+  user: null,
+  token: localStorage.getItem('token'),
+  setAuth: (user, token) => {
+    localStorage.setItem('token', token)
+    set({ user, token })
+  },
+  logout: () => {
+    localStorage.removeItem('token')
+    set({ user: null, token: null })
+  },
+  hasRole: (...roles) => {
+    const role = get().user?.role
+    return role ? roles.includes(role) : false
+  },
+}))
