@@ -1,5 +1,5 @@
 import { ArrowLeft, Home, Maximize2, Minimize2, Sprout } from 'lucide-react'
-import { lazy, Suspense, useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import type { BlokMapData, PeronMapData } from '@/components/kebun-map'
@@ -29,7 +29,10 @@ export function PetaKebunPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const demo = isDemoMode()
-  const businessProfile = getBusinessProfile()
+  // Read once — this page tracks kebunLocation changes itself, and re-reading + re-parsing
+  // localStorage on every render was giving every derived array a new identity each time,
+  // which made the map re-sync (and re-render) its peron markers on completely unrelated renders.
+  const [businessProfile] = useState(() => getBusinessProfile())
   const wrapperRef = useRef<HTMLDivElement>(null)
 
   const [BLOK_LAHAN, setBlokLahan] = useBlokLahan()
@@ -62,22 +65,26 @@ export function PetaKebunPage() {
     }
   }
 
-  const HARGA_PERON = activeHargaPeron(businessProfile)
+  const HARGA_PERON = useMemo(() => activeHargaPeron(businessProfile), [businessProfile])
   const [peronLocations, setPeronLocations] = usePersistedState<Record<string, LngLat>>('peron_locations', () =>
     seedData(PERON_LOCATIONS_DUMMY, { 'Peron 1': KEBUN_CENTER }),
   )
   const [timbangan] = usePersistedState('timbangan', () => seedData(TIMBANGAN_DUMMY, []))
-  const todayStats = computeTodayStatsByPeron(timbangan)
+  const todayStats = useMemo(() => computeTodayStatsByPeron(timbangan), [timbangan])
 
   const mapBloks: BlokMapData[] = BLOK_LAHAN
-  const mapPeron: PeronMapData[] = HARGA_PERON.map((h) => ({
-    peron: h.peron,
-    location: peronLocations[h.peron] ?? KEBUN_CENTER,
-    harga: h.harga,
-    netto: todayStats[h.peron]?.netto ?? 0,
-    transaksi: todayStats[h.peron]?.transaksi ?? 0,
-    belumLunas: todayStats[h.peron]?.belumLunas ?? 0,
-  }))
+  const mapPeron: PeronMapData[] = useMemo(
+    () =>
+      HARGA_PERON.map((h) => ({
+        peron: h.peron,
+        location: peronLocations[h.peron] ?? KEBUN_CENTER,
+        harga: h.harga,
+        netto: todayStats[h.peron]?.netto ?? 0,
+        transaksi: todayStats[h.peron]?.transaksi ?? 0,
+        belumLunas: todayStats[h.peron]?.belumLunas ?? 0,
+      })),
+    [HARGA_PERON, peronLocations, todayStats],
+  )
 
   const firstPolygonCenter = BLOK_LAHAN.find((b) => b.polygon)?.polygon
   const knownCenter = demo

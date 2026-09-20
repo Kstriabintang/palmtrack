@@ -12,12 +12,14 @@ export interface BlokLahan {
   polygon?: LngLat[]
 }
 
-// Indragiri Hilir, Riau — clustered around Tembilahan.
-const SUKAMAJU: LngLat = [103.145, -0.325]
-const MAKMUR_JAYA: LngLat = [103.16, -0.328]
-const HARAPAN_SAWIT: LngLat = [103.14, -0.338]
-const TUNAS_LESTARI: LngLat = [103.158, -0.342]
-const BERKAH_ALAM: LngLat = [103.148, -0.35]
+// Indragiri Hilir, Riau — rural plantation belt ~13-20km north of Tembilahan town, not on top of
+// it or the river. Each point was checked against real Mapbox satellite imagery first (organized
+// tree rows / access roads visible, not buildings or water) before being used here.
+const SUKAMAJU: LngLat = [103.1243, -0.1841]
+const MAKMUR_JAYA: LngLat = [103.1, -0.16]
+const HARAPAN_SAWIT: LngLat = [103.1929, -0.1927]
+const TUNAS_LESTARI: LngLat = [103.22, -0.21]
+const BERKAH_ALAM: LngLat = [103.16, -0.19]
 
 function blockPolygon(cluster: LngLat, dxM: number, dyM: number, sideM: number, rotationDeg = 0): LngLat[] {
   return rectPolygon(offsetPoint(cluster, dxM, dyM), sideM, sideM, rotationDeg)

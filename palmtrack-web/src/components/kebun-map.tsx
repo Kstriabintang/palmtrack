@@ -140,12 +140,9 @@ export function KebunMap({
       'bottom-right',
     )
 
-    const draw = new MapboxDraw({
-      displayControlsDefault: false,
-      controls: {},
-    })
-    map.addControl(draw)
-    drawRef.current = draw
+    // MapboxDraw is only created once drawing actually starts (see the drawingForBlok effect
+    // below) — its vertex/midpoint/fill layers add real per-frame render cost, not worth paying
+    // for on every visit to the map when most visits never touch the draw tool.
 
     map.on('click', (event) => {
       if (!editingLocationRef.current) return
@@ -339,9 +336,10 @@ export function KebunMap({
   // page's "Gambar Denah" action) can otherwise call changeMode before Draw's internal layers exist,
   // which silently swallows every click.
   useEffect(() => {
-    const draw = drawRef.current
     const map = mapRef.current
-    if (!draw || !map) return
+    if (!map) return
+    // Nothing to tear down if the draw tool was never instantiated and we're still not drawing.
+    if (!drawingForBlok && !drawRef.current) return
 
     function handleCreate(event: { features: Array<{ geometry: { coordinates: LngLat[][] } }> }) {
       // Don't deleteAll() here — Draw is mid-transition into direct_select for the feature we'd be
@@ -352,14 +350,21 @@ export function KebunMap({
     }
 
     function apply() {
-      if (!draw || !map) return
+      if (!map) return
       if (drawingForBlok) {
-        draw.deleteAll()
-        draw.changeMode('draw_polygon')
+        // Created lazily, on first actual use — its vertex/midpoint/fill layers add real
+        // per-frame render cost, not worth paying for on visits that never touch the draw tool.
+        if (!drawRef.current) {
+          const draw = new MapboxDraw({ displayControlsDefault: false, controls: {} })
+          map.addControl(draw)
+          drawRef.current = draw
+        }
+        drawRef.current.deleteAll()
+        drawRef.current.changeMode('draw_polygon')
         map.on('draw.create', handleCreate)
-      } else {
-        draw.deleteAll()
-        draw.changeMode('simple_select')
+      } else if (drawRef.current) {
+        drawRef.current.deleteAll()
+        drawRef.current.changeMode('simple_select')
       }
     }
 
