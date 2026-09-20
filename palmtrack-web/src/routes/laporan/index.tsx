@@ -29,9 +29,13 @@ import {
   YAxis,
 } from 'recharts'
 import { toast } from 'sonner'
+import { EmptyState } from '@/components/empty-state'
 import { StatCard } from '@/components/stat-card'
-import { TOTAL_PEMASUKAN_SEPTEMBER_2026, TOTAL_PENGELUARAN_SEPTEMBER_2026, TRANSAKSI_SEPTEMBER_2026 } from '@/lib/dummy-transaksi'
+import type { StatCardProps } from '@/components/stat-card'
+import { TOTAL_PEMASUKAN_SEPTEMBER_2026, TOTAL_PENGELUARAN_SEPTEMBER_2026, TRANSAKSI_SEPTEMBER_2026, type TransaksiKeuangan } from '@/lib/dummy-transaksi'
+import { seedData } from '@/lib/dummy-mode'
 import { generateLaporanPdf } from '@/lib/pdf'
+import { usePersistedState } from '@/lib/use-persisted-state'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -54,7 +58,7 @@ import {
 } from '@/components/ui/table'
 import { cn } from '@/lib/utils'
 
-const STATS = [
+const STATS_DUMMY: StatCardProps[] = [
   {
     label: 'Laporan Bulan Ini',
     value: '12',
@@ -95,7 +99,14 @@ const STATS = [
   },
 ]
 
-const TREN_TAHUNAN = [
+const STATS_EMPTY: StatCardProps[] = [
+  { label: 'Laporan Bulan Ini', value: '0', hint: 'Belum ada laporan dibuat', icon: FileText },
+  { label: 'Laporan Tahunan', value: '0', hint: 'Belum ada laporan dibuat', icon: BarChart3 },
+  { label: 'Total Unduhan', value: '0', hint: 'Belum ada unduhan', icon: Download, tone: 'bg-violet-500/10 text-violet-600' },
+  { label: 'Kinerja Bersih', value: 'Rp 0', hint: 'Belum ada data keuangan', icon: Award, tone: 'bg-amber-500/10 text-amber-600' },
+]
+
+const TREN_TAHUNAN_DUMMY = [
   { bulan: 'Jan', pendapatan: 142, pengeluaran: 61 },
   { bulan: 'Feb', pendapatan: 138, pengeluaran: 58 },
   { bulan: 'Mar', pendapatan: 151, pengeluaran: 64 },
@@ -107,7 +118,7 @@ const TREN_TAHUNAN = [
   { bulan: 'Sep', pendapatan: 186, pengeluaran: 74 },
 ]
 
-const RIWAYAT_LAPORAN = [
+const RIWAYAT_LAPORAN_DUMMY = [
   { nama: 'Laporan Harian Peron', periode: '20 Sep 2026', dibuat: '20 Sep 2026, 16:00', format: 'PDF', icon: FileText, tone: 'bg-primary/10 text-primary' },
   { nama: 'Laporan Bulanan', periode: 'Agustus 2026', dibuat: '1 Sep 2026, 08:00', format: 'PDF & Excel', icon: CalendarDays, tone: 'bg-sky-500/10 text-sky-600' },
   { nama: 'Laporan Gaji Pekerja', periode: 'Agustus 2026', dibuat: '1 Sep 2026, 09:15', format: 'Excel', icon: Users, tone: 'bg-violet-500/10 text-violet-600' },
@@ -136,55 +147,79 @@ function notifyComingSoon(action: string, subjek: string) {
   })
 }
 
-function handleUnduhBulanan() {
-  toast.promise(
-    generateLaporanPdf({
-      judul: 'Laporan Bulanan',
-      periode: 'September 2026',
-      totalPemasukan: TOTAL_PEMASUKAN_SEPTEMBER_2026,
-      totalPengeluaran: TOTAL_PENGELUARAN_SEPTEMBER_2026,
-      transaksi: TRANSAKSI_SEPTEMBER_2026,
-    }),
-    { loading: 'Menyiapkan laporan bulanan...', success: 'Laporan bulanan berhasil diunduh', error: 'Gagal membuat laporan' },
-  )
-}
-
-function handleUnduhTahunan() {
-  const transaksiTahunan = TREN_TAHUNAN.flatMap((item) => [
-    {
-      tanggal: item.bulan,
-      jenis: 'Pemasukan' as const,
-      kategori: 'Pendapatan Bulanan',
-      keterangan: `Total pendapatan ${item.bulan} 2026`,
-      jumlah: item.pendapatan * 1_000_000,
-    },
-    {
-      tanggal: item.bulan,
-      jenis: 'Pengeluaran' as const,
-      kategori: 'Operasional & Perawatan',
-      keterangan: `Total pengeluaran ${item.bulan} 2026`,
-      jumlah: -item.pengeluaran * 1_000_000,
-    },
-  ])
-  const totalPemasukan = TREN_TAHUNAN.reduce((sum, item) => sum + item.pendapatan, 0) * 1_000_000
-  const totalPengeluaran = TREN_TAHUNAN.reduce((sum, item) => sum + item.pengeluaran, 0) * 1_000_000
-
-  toast.promise(
-    generateLaporanPdf({
-      judul: 'Laporan Tahunan',
-      periode: 'Januari – September 2026',
-      totalPemasukan,
-      totalPengeluaran,
-      transaksi: transaksiTahunan,
-    }),
-    { loading: 'Menyiapkan laporan tahunan...', success: 'Laporan tahunan berhasil diunduh', error: 'Gagal membuat laporan' },
-  )
-}
-
 export function LaporanPage() {
   const [periode, setPeriode] = useState(PERIODE_OPTIONS[0])
   const [query, setQuery] = useState('')
   const [formatFilter, setFormatFilter] = useState(FORMAT_FILTERS[0])
+
+  const STATS = seedData(STATS_DUMMY, STATS_EMPTY)
+  const TREN_TAHUNAN = seedData(TREN_TAHUNAN_DUMMY, [] as typeof TREN_TAHUNAN_DUMMY)
+  const RIWAYAT_LAPORAN = seedData(RIWAYAT_LAPORAN_DUMMY, [] as typeof RIWAYAT_LAPORAN_DUMMY)
+
+  const [transaksiBulanan] = usePersistedState<TransaksiKeuangan[]>('transaksi', () =>
+    seedData(TRANSAKSI_SEPTEMBER_2026, []),
+  )
+  const totalPemasukanBulanan = seedData(
+    TOTAL_PEMASUKAN_SEPTEMBER_2026,
+    transaksiBulanan.filter((t) => t.jenis === 'Pemasukan').reduce((sum, t) => sum + t.jumlah, 0),
+  )
+  const totalPengeluaranBulanan = seedData(
+    TOTAL_PENGELUARAN_SEPTEMBER_2026,
+    transaksiBulanan.filter((t) => t.jenis === 'Pengeluaran').reduce((sum, t) => sum + Math.abs(t.jumlah), 0),
+  )
+
+  function handleUnduhBulanan() {
+    if (transaksiBulanan.length === 0) {
+      toast.error('Belum ada transaksi untuk dilaporkan', { description: 'Catat transaksi di halaman Keuangan terlebih dahulu.' })
+      return
+    }
+    toast.promise(
+      generateLaporanPdf({
+        judul: 'Laporan Bulanan',
+        periode: 'September 2026',
+        totalPemasukan: totalPemasukanBulanan,
+        totalPengeluaran: totalPengeluaranBulanan,
+        transaksi: transaksiBulanan,
+      }),
+      { loading: 'Menyiapkan laporan bulanan...', success: 'Laporan bulanan berhasil diunduh', error: 'Gagal membuat laporan' },
+    )
+  }
+
+  function handleUnduhTahunan() {
+    if (TREN_TAHUNAN.length === 0) {
+      toast.error('Belum ada data tahunan untuk dilaporkan')
+      return
+    }
+    const transaksiTahunan = TREN_TAHUNAN.flatMap((item) => [
+      {
+        tanggal: item.bulan,
+        jenis: 'Pemasukan' as const,
+        kategori: 'Pendapatan Bulanan',
+        keterangan: `Total pendapatan ${item.bulan} 2026`,
+        jumlah: item.pendapatan * 1_000_000,
+      },
+      {
+        tanggal: item.bulan,
+        jenis: 'Pengeluaran' as const,
+        kategori: 'Operasional & Perawatan',
+        keterangan: `Total pengeluaran ${item.bulan} 2026`,
+        jumlah: -item.pengeluaran * 1_000_000,
+      },
+    ])
+    const totalPemasukan = TREN_TAHUNAN.reduce((sum, item) => sum + item.pendapatan, 0) * 1_000_000
+    const totalPengeluaran = TREN_TAHUNAN.reduce((sum, item) => sum + item.pengeluaran, 0) * 1_000_000
+
+    toast.promise(
+      generateLaporanPdf({
+        judul: 'Laporan Tahunan',
+        periode: 'Januari – September 2026',
+        totalPemasukan,
+        totalPengeluaran,
+        transaksi: transaksiTahunan,
+      }),
+      { loading: 'Menyiapkan laporan tahunan...', success: 'Laporan tahunan berhasil diunduh', error: 'Gagal membuat laporan' },
+    )
+  }
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -193,7 +228,7 @@ export function LaporanPage() {
       const matchesFormat = formatFilter === 'Semua Format' || row.format === formatFilter
       return matchesQuery && matchesFormat
     })
-  }, [query, formatFilter])
+  }, [query, formatFilter, RIWAYAT_LAPORAN])
 
   return (
     <div className="flex flex-col gap-6">
@@ -307,6 +342,13 @@ export function LaporanPage() {
           </DropdownMenu>
         </CardHeader>
         <CardContent className="h-72">
+          {TREN_TAHUNAN.length === 0 ? (
+            <EmptyState
+              icon={BarChart3}
+              title="Belum ada data tren"
+              description="Grafik akan muncul setelah kamu mencatat transaksi keuangan beberapa bulan."
+            />
+          ) : (
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={TREN_TAHUNAN} margin={{ left: 4, right: 12, top: 8 }}>
               <CartesianGrid vertical={false} stroke="var(--color-border)" />
@@ -334,6 +376,7 @@ export function LaporanPage() {
               <Bar dataKey="pengeluaran" fill="var(--color-chart-2)" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
+          )}
         </CardContent>
       </Card>
 
@@ -377,7 +420,17 @@ export function LaporanPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {rows.length === 0 ? (
+              {RIWAYAT_LAPORAN.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="p-0">
+                    <EmptyState
+                      icon={FileText}
+                      title="Belum ada riwayat laporan"
+                      description="Laporan yang kamu unduh akan tercatat di sini."
+                    />
+                  </TableCell>
+                </TableRow>
+              ) : rows.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={5} className="py-8 text-center text-sm text-muted-foreground">
                     Tidak ada laporan yang cocok dengan pencarian atau filter.

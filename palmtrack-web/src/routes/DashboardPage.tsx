@@ -23,13 +23,17 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
+import { useNavigate } from 'react-router-dom'
+import { EmptyState } from '@/components/empty-state'
 import { StatCard } from '@/components/stat-card'
+import type { StatCardProps } from '@/components/stat-card'
 import { StatusBadge } from '@/components/status-badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { seedData } from '@/lib/dummy-mode'
 import { cn } from '@/lib/utils'
 
-const STATS = [
+const STATS_DUMMY: StatCardProps[] = [
   {
     label: 'Produksi Hari Ini',
     value: '18.260 kg',
@@ -70,7 +74,14 @@ const STATS = [
   },
 ]
 
-const TREN_PRODUKSI = {
+const STATS_EMPTY: StatCardProps[] = [
+  { label: 'Produksi Hari Ini', value: '0 kg', hint: 'Belum ada transaksi timbang', icon: BarChart3, tone: 'bg-primary/10 text-primary' },
+  { label: 'Pendapatan Bulan Ini', value: 'Rp 0', hint: 'Belum ada transaksi keuangan', icon: Wallet, tone: 'bg-amber-500/10 text-amber-600' },
+  { label: 'Kebun Aktif', value: '0 kebun · 0 blok', hint: '0 Ha total luas tanam', icon: Sprout, tone: 'bg-primary/10 text-primary' },
+  { label: 'Tunggakan Petani', value: 'Rp 0', hint: 'Belum ada tunggakan', icon: CircleAlert, tone: 'bg-destructive/10 text-destructive' },
+]
+
+const TREN_PRODUKSI_DUMMY = {
   '7 Hari': [
     { label: '14 Sep', kg: 11200 },
     { label: '15 Sep', kg: 12400 },
@@ -94,18 +105,24 @@ const TREN_PRODUKSI = {
     { label: 'Ags', kg: 16300 },
     { label: 'Sep', kg: 18260 },
   ],
-} as const
+}
 
-type Periode = keyof typeof TREN_PRODUKSI
+type Periode = keyof typeof TREN_PRODUKSI_DUMMY
 
-const JADWAL_PANEN = [
+const TREN_PRODUKSI_EMPTY: Record<Periode, { label: string; kg: number }[]> = {
+  '7 Hari': [],
+  '30 Hari': [],
+  '3 Bulan': [],
+}
+
+const JADWAL_PANEN_DUMMY = [
   { blok: 'Blok A3', mandor: 'Pak Herman', tanggal: '21 Sep 2026', jam: '07:00', status: 'Terjadwal' },
   { blok: 'Blok C1', mandor: 'Pak Herman', tanggal: '21 Sep 2026', jam: '13:00', status: 'Terjadwal' },
   { blok: 'Blok B2', mandor: 'Pak Yusuf', tanggal: '20 Sep 2026', jam: '07:00', status: 'Selesai' },
   { blok: 'Blok D4', mandor: 'Pak Yusuf', tanggal: '19 Sep 2026', jam: '13:00', status: 'Selesai' },
 ]
 
-const AKTIVITAS = [
+const AKTIVITAS_DUMMY = [
   {
     title: 'Produksi tercatat',
     detail: 'Peron 1 · 2.340 kg TBS',
@@ -136,7 +153,7 @@ const AKTIVITAS = [
   },
 ]
 
-const STATUS_OPERASIONAL = [
+const STATUS_OPERASIONAL_DUMMY = [
   {
     label: 'Peron Aktif',
     value: '3 / 3',
@@ -167,8 +184,22 @@ const STATUS_OPERASIONAL = [
   },
 ]
 
+const STATUS_OPERASIONAL_EMPTY = [
+  { label: 'Peron Aktif', value: '1 / 1', hint: 'Peron 1 siap dipakai', status: 'Normal', icon: Truck },
+  { label: 'Pekerja Aktif', value: '0 / 0', hint: 'Belum ada pekerja', status: 'Baik', icon: Users },
+  { label: 'Panen Hari Ini', value: '0 blok', hint: 'Belum ada blok kebun', status: 'On Track', icon: Sprout },
+  { label: 'Kendaraan Aktif', value: '0 / 0', hint: 'Belum ada data kendaraan', status: 'Normal', icon: Car },
+]
+
 export function DashboardPage() {
+  const navigate = useNavigate()
   const [periode, setPeriode] = useState<Periode>('7 Hari')
+
+  const STATS = seedData(STATS_DUMMY, STATS_EMPTY)
+  const TREN_PRODUKSI = seedData(TREN_PRODUKSI_DUMMY, TREN_PRODUKSI_EMPTY)
+  const JADWAL_PANEN = seedData(JADWAL_PANEN_DUMMY, [] as typeof JADWAL_PANEN_DUMMY)
+  const AKTIVITAS = seedData(AKTIVITAS_DUMMY, [] as typeof AKTIVITAS_DUMMY)
+  const STATUS_OPERASIONAL = seedData(STATUS_OPERASIONAL_DUMMY, STATUS_OPERASIONAL_EMPTY)
 
   return (
     <div className="flex flex-col gap-6">
@@ -180,11 +211,11 @@ export function DashboardPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button>
+          <Button onClick={() => navigate('/peron')}>
             <Plus />
             Catat Produksi
           </Button>
-          <Button variant="outline">
+          <Button variant="outline" onClick={() => navigate('/laporan')}>
             <Download />
             Download Laporan
           </Button>
@@ -225,6 +256,13 @@ export function DashboardPage() {
             </div>
           </CardHeader>
           <CardContent className="h-72">
+            {TREN_PRODUKSI[periode].length === 0 ? (
+              <EmptyState
+                icon={BarChart3}
+                title="Belum ada data produksi"
+                description="Grafik akan terisi setelah kamu mencatat transaksi timbang pertama di Peron."
+              />
+            ) : (
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={[...TREN_PRODUKSI[periode]]} margin={{ left: 4, right: 12, top: 8 }}>
                 <defs>
@@ -268,6 +306,7 @@ export function DashboardPage() {
                 />
               </AreaChart>
             </ResponsiveContainer>
+            )}
           </CardContent>
         </Card>
 
@@ -280,6 +319,13 @@ export function DashboardPage() {
             </Button>
           </CardHeader>
           <CardContent className="flex flex-col gap-1">
+            {JADWAL_PANEN.length === 0 && (
+              <EmptyState
+                icon={Sprout}
+                title="Belum ada jadwal panen"
+                description="Jadwal panen akan muncul setelah kamu menambahkan blok kebun."
+              />
+            )}
             {JADWAL_PANEN.map((item) => (
               <div
                 key={`${item.blok}-${item.jam}`}
@@ -317,6 +363,13 @@ export function DashboardPage() {
             </Button>
           </CardHeader>
           <CardContent>
+            {AKTIVITAS.length === 0 && (
+              <EmptyState
+                icon={Clock}
+                title="Belum ada aktivitas"
+                description="Aktivitas terbaru dari Peron, Keuangan, dan Pekerja akan muncul di sini."
+              />
+            )}
             <ul className="flex flex-col">
               {AKTIVITAS.map((item, index) => (
                 <li key={item.title + item.time} className="relative flex gap-3 pb-5 last:pb-0">

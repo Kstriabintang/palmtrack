@@ -52,7 +52,10 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { EmptyState } from '@/components/empty-state'
+import { seedData } from '@/lib/dummy-mode'
 import { rupiah } from '@/lib/format'
+import { usePersistedState } from '@/lib/use-persisted-state'
 
 const JABATAN_OPTIONS = ['Pemanen', 'Perawatan Kebun', 'Pemupukan'] as const
 const HARI_KERJA_PERIODE = 26
@@ -75,7 +78,7 @@ interface GajiRecord {
   statusBayar: 'Lunas' | 'Belum Dibayar'
 }
 
-const PEKERJA_INITIAL: Pekerja[] = [
+const PEKERJA_DUMMY: Pekerja[] = [
   { id: 'pk-01', nama: 'Slamet Riyadi', nik: '6171080503880001', jabatan: 'Pemanen', telepon: '0852-1122-3344', upahHarian: 130000, tanggalMasuk: '12 Jan 2023', status: 'Aktif' },
   { id: 'pk-02', nama: 'Dedi Kurniawan', nik: '6171080711890002', jabatan: 'Pemanen', telepon: '0813-4455-1122', upahHarian: 130000, tanggalMasuk: '3 Mar 2023', status: 'Aktif' },
   { id: 'pk-03', nama: 'Ahmad Fauzi', nik: '6171081209910003', jabatan: 'Pemanen', telepon: '0821-7766-3344', upahHarian: 130000, tanggalMasuk: '20 Jun 2023', status: 'Aktif' },
@@ -96,7 +99,7 @@ const PEKERJA_INITIAL: Pekerja[] = [
   { id: 'pk-18', nama: 'Made Saputra', nik: '6171080614950018', jabatan: 'Pemupukan', telepon: '0821-6677-8899', upahHarian: 120000, tanggalMasuk: '16 Mei 2025', status: 'Aktif' },
 ]
 
-const GAJI_INITIAL: GajiRecord[] = [
+const GAJI_DUMMY: GajiRecord[] = [
   { pekerjaId: 'pk-01', hariKerja: 26, statusBayar: 'Lunas' },
   { pekerjaId: 'pk-02', hariKerja: 25, statusBayar: 'Lunas' },
   { pekerjaId: 'pk-03', hariKerja: 24, statusBayar: 'Belum Dibayar' },
@@ -127,8 +130,8 @@ function notifyComingSoon(action: string, nama: string) {
 }
 
 export function PekerjaPage() {
-  const [pekerja, setPekerja] = useState<Pekerja[]>(PEKERJA_INITIAL)
-  const [gaji, setGaji] = useState<GajiRecord[]>(GAJI_INITIAL)
+  const [pekerja, setPekerja] = usePersistedState<Pekerja[]>('pekerja', () => seedData(PEKERJA_DUMMY, []))
+  const [gaji, setGaji] = usePersistedState<GajiRecord[]>('gaji', () => seedData(GAJI_DUMMY, []))
   const [query, setQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState(STATUS_FILTERS[0])
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -315,7 +318,19 @@ export function PekerjaPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredPekerja.length === 0 ? (
+              {pekerja.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="p-0">
+                    <EmptyState
+                      icon={UserPlus}
+                      title="Belum ada pekerja"
+                      description="Tambahkan pekerja pertama untuk mulai mencatat gaji dan kehadiran bulanan."
+                      actionLabel="Tambah Pekerja"
+                      onAction={() => setDialogOpen(true)}
+                    />
+                  </TableCell>
+                </TableRow>
+              ) : filteredPekerja.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} className="py-8 text-center text-sm text-muted-foreground">
                     Tidak ada pekerja yang cocok dengan pencarian atau filter.
@@ -380,6 +395,13 @@ export function PekerjaPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
+              {gajiRows.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">
+                    Belum ada pekerja aktif untuk direkap gajinya.
+                  </TableCell>
+                </TableRow>
+              )}
               {gajiRows.map(({ record, worker }) => (
                 <TableRow key={record.pekerjaId}>
                   <TableCell className="font-medium">{worker.nama}</TableCell>

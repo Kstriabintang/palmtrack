@@ -46,10 +46,13 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { EmptyState } from '@/components/empty-state'
+import type { StatCardProps } from '@/components/stat-card'
+import { seedData } from '@/lib/dummy-mode'
 import { rupiah } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
-const STATS = [
+const STATS_DUMMY: StatCardProps[] = [
   {
     label: 'Total Luas Tanam',
     value: '142 Ha',
@@ -86,7 +89,14 @@ const STATS = [
   },
 ]
 
-const BLOK_LAHAN = [
+const STATS_EMPTY: StatCardProps[] = [
+  { label: 'Total Luas Tanam', value: '0 Ha', hint: 'Belum ada kebun', icon: Ruler },
+  { label: 'Blok Aktif', value: '0 blok', hint: 'Belum ada blok', icon: Sprout },
+  { label: 'Produksi Bulan Ini', value: '0 kg', hint: 'Dari seluruh blok', icon: BarChart3, tone: 'bg-sky-500/10 text-sky-600' },
+  { label: 'Siap Panen', value: '0 blok', hint: 'Belum ada jadwal panen', icon: CalendarClock, tone: 'bg-amber-500/10 text-amber-600' },
+]
+
+const BLOK_LAHAN_DUMMY = [
   { blok: 'Blok A1', kebun: 'Kebun Sukamaju', luas: 8.5, tanam: 2018, mandor: 'Pak Herman', status: 'Aktif' },
   { blok: 'Blok A2', kebun: 'Kebun Sukamaju', luas: 7.8, tanam: 2018, mandor: 'Pak Herman', status: 'Aktif' },
   { blok: 'Blok A3', kebun: 'Kebun Sukamaju', luas: 9.2, tanam: 2019, mandor: 'Pak Herman', status: 'Aktif' },
@@ -97,23 +107,23 @@ const BLOK_LAHAN = [
   { blok: 'Blok D3', kebun: 'Kebun Tunas Lestari', luas: 6.8, tanam: 2022, mandor: 'Pak Slamet', status: 'Replanting' },
   { blok: 'Blok D4', kebun: 'Kebun Tunas Lestari', luas: 7.2, tanam: 2016, mandor: 'Pak Yusuf', status: 'Aktif' },
   { blok: 'Blok E1', kebun: 'Kebun Berkah Alam', luas: 8.9, tanam: 2015, mandor: 'Pak Bambang', status: 'Aktif' },
-] as const
+]
 
-const JADWAL_PANEN = [
+const JADWAL_PANEN_DUMMY = [
   { blok: 'Blok A3', kebun: 'Kebun Sukamaju', tanggal: '22 Sep 2026', sisaHari: 3, status: 'Siap Panen' },
   { blok: 'Blok C1', kebun: 'Kebun Harapan Sawit', tanggal: '25 Sep 2026', sisaHari: 6, status: 'Siap Panen' },
   { blok: 'Blok B2', kebun: 'Kebun Makmur Jaya', tanggal: '28 Sep 2026', sisaHari: 9, status: 'Perlu Persiapan' },
   { blok: 'Blok D4', kebun: 'Kebun Tunas Lestari', tanggal: '30 Sep 2026', sisaHari: 11, status: 'Siap Panen' },
 ]
 
-const BIAYA_PERAWATAN = [
+const BIAYA_PERAWATAN_DUMMY = [
   { jenis: 'Pupuk', biaya: 16500000, icon: Sprout, tone: 'bg-primary/10 text-primary' },
   { jenis: 'Transportasi', biaya: 8750000, icon: Truck, tone: 'bg-sky-500/10 text-sky-600' },
   { jenis: 'Tenaga Kerja', biaya: 9200000, icon: Users, tone: 'bg-violet-500/10 text-violet-600' },
   { jenis: 'Perawatan Alat', biaya: 4150000, icon: Wrench, tone: 'bg-amber-500/10 text-amber-600' },
 ]
 
-const STATUS_BLOK = [
+const STATUS_BLOK_DUMMY = [
   { label: 'Aktif', value: 14, pct: 78, color: 'var(--color-primary)' },
   { label: 'Perlu Perhatian', value: 1, pct: 6, color: 'var(--color-amber-500)' },
   { label: 'Replanting', value: 1, pct: 6, color: 'var(--color-sky-500)' },
@@ -172,6 +182,12 @@ export function KebunPage() {
   const [statusFilter, setStatusFilter] = useState(STATUS_FILTERS[0])
   const [sort, setSort] = useState<{ key: SortKey; direction: 'asc' | 'desc' }>({ key: 'blok', direction: 'asc' })
 
+  const STATS = seedData(STATS_DUMMY, STATS_EMPTY)
+  const BLOK_LAHAN = seedData(BLOK_LAHAN_DUMMY, [] as typeof BLOK_LAHAN_DUMMY)
+  const JADWAL_PANEN = seedData(JADWAL_PANEN_DUMMY, [] as typeof JADWAL_PANEN_DUMMY)
+  const BIAYA_PERAWATAN = seedData(BIAYA_PERAWATAN_DUMMY, [] as typeof BIAYA_PERAWATAN_DUMMY)
+  const STATUS_BLOK = seedData(STATUS_BLOK_DUMMY, [] as typeof STATUS_BLOK_DUMMY)
+
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase()
     const filtered = BLOK_LAHAN.filter((row) => {
@@ -208,7 +224,7 @@ export function KebunPage() {
             Data blok lahan, jadwal panen, dan biaya perawatan.
           </p>
         </div>
-        <Button>
+        <Button onClick={() => notifyComingSoon('Tambah blok', 'Kebun')}>
           <Plus />
           Tambah Blok
         </Button>
@@ -246,7 +262,7 @@ export function KebunPage() {
                 ))}
               </DropdownMenuContent>
             </DropdownMenu>
-            <span className="text-xs whitespace-nowrap text-muted-foreground">Menampilkan {rows.length} dari 18 blok</span>
+            <span className="text-xs whitespace-nowrap text-muted-foreground">Menampilkan {rows.length} dari {BLOK_LAHAN.length} blok</span>
           </div>
         </CardHeader>
         <CardContent className="px-0">
@@ -263,7 +279,19 @@ export function KebunPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {rows.length === 0 ? (
+              {BLOK_LAHAN.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="p-0">
+                    <EmptyState
+                      icon={Sprout}
+                      title="Belum ada blok lahan"
+                      description="Tambahkan blok pertama untuk mulai mencatat luas tanam dan jadwal panen kebunmu."
+                      actionLabel="Tambah Blok"
+                      onAction={() => notifyComingSoon('Tambah blok', 'Kebun')}
+                    />
+                  </TableCell>
+                </TableRow>
+              ) : rows.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} className="py-8 text-center text-sm text-muted-foreground">
                     Tidak ada blok yang cocok dengan pencarian atau filter.
@@ -320,6 +348,9 @@ export function KebunPage() {
             </Button>
           </CardHeader>
           <CardContent className="flex flex-col gap-1">
+            {JADWAL_PANEN.length === 0 && (
+              <p className="py-6 text-center text-xs text-muted-foreground">Belum ada jadwal panen.</p>
+            )}
             {JADWAL_PANEN.map((item) => (
               <div key={item.blok} className="flex items-center gap-3 rounded-lg px-1.5 py-2.5 hover:bg-muted/60">
                 <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
@@ -353,6 +384,9 @@ export function KebunPage() {
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
             <div className="flex flex-col gap-1">
+              {BIAYA_PERAWATAN.length === 0 && (
+                <p className="py-6 text-center text-xs text-muted-foreground">Belum ada biaya perawatan tercatat.</p>
+              )}
               {BIAYA_PERAWATAN.map((item) => (
                 <div key={item.jenis} className="flex items-center justify-between gap-3 rounded-lg px-1.5 py-2 hover:bg-muted/60">
                   <div className="flex items-center gap-2.5">
@@ -371,10 +405,12 @@ export function KebunPage() {
                   <span className="text-xs text-muted-foreground">Total Biaya</span>
                   <span className="text-lg font-semibold tracking-tight">Rp {(totalBiaya / 1_000_000).toLocaleString('id-ID', { maximumFractionDigits: 1 })} jt</span>
                 </div>
-                <Badge variant="outline" className="border-transparent bg-primary/10 text-primary">
-                  <ArrowDown className="size-3" />
-                  -12% dari bulan lalu
-                </Badge>
+                {BIAYA_PERAWATAN.length > 0 && (
+                  <Badge variant="outline" className="border-transparent bg-primary/10 text-primary">
+                    <ArrowDown className="size-3" />
+                    -12% dari bulan lalu
+                  </Badge>
+                )}
               </div>
             </div>
           </CardContent>
@@ -388,9 +424,11 @@ export function KebunPage() {
             </Button>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
-            <DonutSummary data={STATUS_BLOK} centerValue="18 blok" centerLabel="Total Blok" valueSuffix=" blok" />
+            <DonutSummary data={STATUS_BLOK} centerValue={`${BLOK_LAHAN.length} blok`} centerLabel="Total Blok" valueSuffix=" blok" />
             <div className="flex items-center gap-2 rounded-lg bg-primary/5 px-3 py-2.5 text-sm ring-1 ring-primary/15">
-              <span className="font-medium">Sebagian besar blok dalam kondisi aktif</span>
+              <span className="font-medium">
+                {STATUS_BLOK.length === 0 ? 'Belum ada data status blok' : 'Sebagian besar blok dalam kondisi aktif'}
+              </span>
               <ArrowRight className="ml-auto size-4 shrink-0 text-primary" />
             </div>
           </CardContent>

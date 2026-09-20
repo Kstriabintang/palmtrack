@@ -3,7 +3,7 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { Sparkline } from '@/components/sparkline'
 
-interface StatCardProps {
+export interface StatCardProps {
   label: string
   value: string
   hint?: string

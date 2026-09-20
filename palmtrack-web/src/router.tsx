@@ -3,6 +3,7 @@ import { AppLayout } from '@/layouts/AppLayout'
 import { AuthLayout } from '@/layouts/AuthLayout'
 import { DashboardPage } from '@/routes/DashboardPage'
 import { LoginPage } from '@/routes/auth/Login'
+import { OnboardingPage } from '@/routes/auth/Onboarding'
 import { KebunPage } from '@/routes/kebun'
 import { KeuanganPage } from '@/routes/keuangan'
 import { LaporanPage } from '@/routes/laporan'
@@ -16,7 +17,10 @@ export const router = createBrowserRouter(
   [
     {
       element: <AuthLayout />,
-      children: [{ path: '/login', element: <LoginPage /> }],
+      children: [
+        { path: '/login', element: <LoginPage /> },
+        { path: '/onboarding', element: <OnboardingPage /> },
+      ],
     },
     {
       element: <AppLayout />,

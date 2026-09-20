@@ -25,6 +25,7 @@ import {
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Cell, Pie, PieChart, ResponsiveContainer } from 'recharts'
 import { toast } from 'sonner'
+import { EmptyState } from '@/components/empty-state'
 import { StatCard } from '@/components/stat-card'
 import { StatusBadge } from '@/components/status-badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -65,9 +66,12 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { getBusinessProfile } from '@/lib/business'
+import { seedData } from '@/lib/dummy-mode'
 import { initials, rupiah, rupiahSingkat } from '@/lib/format'
 import { addToQueue, clearQueue, getQueue, type OfflineTimbangEntry } from '@/lib/offline-queue'
 import { generateNotaTimbangPdf } from '@/lib/pdf'
+import { usePersistedState } from '@/lib/use-persisted-state'
 import { buildNotaMessage, buildReminderMessage, openWhatsApp } from '@/lib/whatsapp'
 
 const HARGA_TBS_STAT = {
@@ -81,7 +85,7 @@ const HARGA_TBS_STAT = {
   trendColor: 'var(--color-amber-500)',
 }
 
-const TIMBANGAN_INITIAL = [
+const TIMBANGAN_DUMMY = [
   { waktu: '10:24', petani: 'Bapak Suroto', telepon: '0812-5566-7788', plat: 'KB 1234 XY', peron: 'Peron 1', bruto: 3200, tara: 860, netto: 2340, harga: 2450, status: 'Lunas' },
   { waktu: '09:52', petani: 'Ibu Sari Wulandari', telepon: '0813-2233-4455', plat: 'KB 5678 AB', peron: 'Peron 2', bruto: 2850, tara: 720, netto: 2130, harga: 2450, status: 'Lunas' },
   { waktu: '09:18', petani: 'Pak Agus Salim', telepon: '0821-9988-7766', plat: 'KB 9012 CD', peron: 'Peron 1', bruto: 4100, tara: 1050, netto: 3050, harga: 2450, status: 'Belum Lunas' },
@@ -92,7 +96,7 @@ const TIMBANGAN_INITIAL = [
   { waktu: '07:03', petani: 'Pak Yusuf', telepon: '0812-3344-5566', plat: 'KB 6677 KL', peron: 'Peron 1', bruto: 3980, tara: 1020, netto: 2960, harga: 2400, status: 'Lunas' },
 ]
 
-const HUTANG_PETANI = [
+const HUTANG_PETANI_DUMMY = [
   { petani: 'Pak Agus Salim', telepon: '0821-9988-7766', sisa: 4200000, tanggal: '18 Sep 2026', jatuhTempo: '25 Sep 2026', tone: 'bg-primary/10 text-primary' },
   { petani: 'Ibu Ningsih', telepon: '0813-6677-8899', sisa: 6264000, tanggal: '17 Sep 2026', jatuhTempo: '24 Sep 2026', tone: 'bg-sky-500/10 text-sky-600' },
   { petani: 'Pak Bambang', telepon: '0821-4455-6677', sisa: 2750000, tanggal: '16 Sep 2026', jatuhTempo: '23 Sep 2026', tone: 'bg-amber-500/10 text-amber-600' },
@@ -100,7 +104,7 @@ const HUTANG_PETANI = [
   { petani: 'Pak Slamet Riyadi', telepon: '0852-1122-3344', sisa: 1200000, tanggal: '14 Sep 2026', jatuhTempo: '21 Sep 2026', tone: 'bg-rose-500/10 text-rose-600' },
 ]
 
-const HARGA_PERON = [
+const HARGA_PERON_DUMMY = [
   { peron: 'Peron 1', harga: 2450, perubahan: 2 },
   { peron: 'Peron 2', harga: 2450, perubahan: 2 },
   { peron: 'Peron 3', harga: 2400, perubahan: 0 },
@@ -135,7 +139,14 @@ export function PeronPage() {
   const [periode, setPeriode] = useState(PERIODE_OPTIONS[0])
   const [statusFilter, setStatusFilter] = useState(STATUS_FILTERS[0])
   const [query, setQuery] = useState('')
-  const [timbangan, setTimbangan] = useState(TIMBANGAN_INITIAL)
+  const [timbangan, setTimbangan] = usePersistedState('timbangan', () => seedData(TIMBANGAN_DUMMY, []))
+
+  const businessProfile = getBusinessProfile()
+  const HARGA_PERON = seedData(
+    HARGA_PERON_DUMMY,
+    [{ peron: 'Peron 1', harga: businessProfile?.hargaTbsAwal ?? 0, perubahan: 0 }],
+  )
+  const HUTANG_PETANI = seedData(HUTANG_PETANI_DUMMY, [])
 
   const [dialogOpen, setDialogOpen] = useState(false)
   const [form, setForm] = useState(FORM_DEFAULT)
@@ -195,7 +206,7 @@ export function PeronPage() {
     })
   }
 
-  function handleCetakNota(row: (typeof TIMBANGAN_INITIAL)[number]) {
+  function handleCetakNota(row: (typeof TIMBANGAN_DUMMY)[number]) {
     const nomorNota = `TB-${row.plat.replace(/\s+/g, '')}-${row.waktu.replace(':', '')}`
     toast.promise(
       generateNotaTimbangPdf({
@@ -309,11 +320,20 @@ export function PeronPage() {
       trend: [11200, 12400, 13800, 15100, 16400, 17500, nettoHariIni],
       trendColor: 'var(--color-primary)',
     },
-    HARGA_TBS_STAT,
+    seedData(
+      { ...HARGA_TBS_STAT, value: `${rupiah(HARGA_PERON[0]?.harga ?? 0)} / kg` },
+      {
+        ...HARGA_TBS_STAT,
+        value: `${rupiah(HARGA_PERON[0]?.harga ?? 0)} / kg`,
+        hint: 'Harga awal — perbarui setiap hari di sini',
+        delta: undefined,
+        trend: undefined,
+      },
+    ),
     {
       label: 'Transaksi Hari Ini',
       value: `${timbangan.length} transaksi`,
-      hint: '3 peron aktif menimbang',
+      hint: `${HARGA_PERON.length} peron aktif menimbang`,
       icon: Receipt,
       tone: 'bg-sky-500/10 text-sky-600',
       trend: [4, 5, 6, 6, 7, 7, timbangan.length],
@@ -455,7 +475,19 @@ export function PeronPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {rows.length === 0 ? (
+              {timbangan.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={11} className="p-0">
+                    <EmptyState
+                      icon={Receipt}
+                      title="Belum ada transaksi timbang"
+                      description="Catat transaksi timbang pertama untuk mulai memantau produksi dan pembayaran petani."
+                      actionLabel="Input Timbang"
+                      onAction={() => setDialogOpen(true)}
+                    />
+                  </TableCell>
+                </TableRow>
+              ) : rows.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={11} className="py-8 text-center text-sm text-muted-foreground">
                     Tidak ada transaksi yang cocok dengan pencarian atau filter.
@@ -539,6 +571,9 @@ export function PeronPage() {
             </Button>
           </CardHeader>
           <CardContent className="flex flex-col gap-1">
+            {HUTANG_PETANI.length === 0 && (
+              <p className="py-6 text-center text-xs text-muted-foreground">Belum ada catatan hutang petani.</p>
+            )}
             {HUTANG_PETANI.map((item, index) => (
               <div key={item.petani} className="flex items-center justify-between gap-3 rounded-lg px-1.5 py-2 hover:bg-muted/60">
                 <div className="flex items-center gap-2.5">
@@ -668,7 +703,7 @@ export function PeronPage() {
             </div>
             <div className="flex items-center gap-2 rounded-lg bg-primary/5 px-3 py-2.5 text-sm ring-1 ring-primary/15">
               <span className="size-2 shrink-0 rounded-full bg-primary" />
-              <span className="font-medium">3 peron aktif</span>
+              <span className="font-medium">{HARGA_PERON.length} peron aktif</span>
               <span className="text-muted-foreground">· Semua peron beroperasi normal</span>
             </div>
           </CardContent>

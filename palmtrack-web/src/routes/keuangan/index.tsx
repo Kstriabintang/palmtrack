@@ -33,7 +33,23 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import {
   Table,
   TableBody,
@@ -42,65 +58,28 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { TRANSAKSI_SEPTEMBER_2026 } from '@/lib/dummy-transaksi'
+import { EmptyState } from '@/components/empty-state'
+import { TOTAL_PEMASUKAN_SEPTEMBER_2026, TOTAL_PENGELUARAN_SEPTEMBER_2026, TRANSAKSI_SEPTEMBER_2026, type TransaksiKeuangan } from '@/lib/dummy-transaksi'
+import { seedData } from '@/lib/dummy-mode'
 import { initials, rupiah, rupiahSingkat } from '@/lib/format'
+import { usePersistedState } from '@/lib/use-persisted-state'
 import { buildReminderMessage, openWhatsApp } from '@/lib/whatsapp'
 
-const HUTANG_PIUTANG = [
+const HUTANG_PIUTANG_DUMMY = [
   { pihak: 'Pak Agus Salim', telepon: '0821-9988-7766', jenis: 'Piutang', jumlah: 4200000, status: 'Belum Lunas', jatuhTempo: '25 Sep 2026' },
   { pihak: 'Ibu Ningsih', telepon: '0813-6677-8899', jenis: 'Piutang', jumlah: 6264000, status: 'Belum Lunas', jatuhTempo: '24 Sep 2026' },
   { pihak: 'Toko Tani Makmur', telepon: '0811-2233-9988', jenis: 'Hutang', jumlah: 5800000, status: 'Cicilan Berjalan', jatuhTempo: '30 Sep 2026' },
   { pihak: 'Pak Darmawan', telepon: '0813-5544-3322', jenis: 'Piutang', jumlah: 900000, status: 'Belum Lunas', jatuhTempo: '26 Sep 2026' },
 ]
 
-const TOTAL_HUTANG_PIUTANG = HUTANG_PIUTANG.reduce((sum, item) => sum + item.jumlah, 0)
-
-const STATS = [
-  {
-    label: 'Pemasukan Bulan Ini',
-    value: 'Rp 186,4 jt',
-    hint: '+12% dari bulan lalu',
-    delta: '+12%',
-    icon: Wallet,
-    trend: [142, 138, 151, 149, 163, 158, 171, 179, 186],
-    trendColor: 'var(--color-primary)',
-  },
-  {
-    label: 'Pengeluaran Bulan Ini',
-    value: 'Rp 74,2 jt',
-    hint: 'Turun dari bulan lalu',
-    icon: TrendingDown,
-    tone: 'bg-amber-500/10 text-amber-600',
-    trend: [61, 58, 64, 66, 69, 65, 70, 73, 74.2],
-    trendColor: 'var(--color-amber-500)',
-  },
-  {
-    label: 'Saldo Kas',
-    value: 'Rp 112,2 jt',
-    hint: 'Per 20 September 2026',
-    icon: PiggyBank,
-    tone: 'bg-sky-500/10 text-sky-600',
-    trend: [81, 80, 87, 83, 94, 93, 101, 106, 112.2],
-    trendColor: 'var(--color-sky-500)',
-  },
-  {
-    label: 'Hutang & Piutang',
-    value: rupiahSingkat(TOTAL_HUTANG_PIUTANG),
-    hint: `Dari ${HUTANG_PIUTANG.length} pihak`,
-    icon: CircleAlert,
-    tone: 'bg-destructive/10 text-destructive',
-    trend: [13.8, 14.5, 15.2, 15.8, 16.4, 16.9, TOTAL_HUTANG_PIUTANG / 1_000_000],
-    trendColor: 'var(--color-destructive)',
-  },
-]
-
-const TRANSAKSI = TRANSAKSI_SEPTEMBER_2026
-
-const PENGELUARAN_KATEGORI = [
+const PENGELUARAN_KATEGORI_DUMMY = [
   { kategori: 'Gaji Pekerja', nilai: 42800000, icon: Users },
   { kategori: 'Operasional Peron & Kebun', nilai: 18600000, icon: Wallet },
   { kategori: 'Perawatan (Pupuk & Herbisida)', nilai: 12800000, icon: Sprout },
 ]
+
+const JENIS_OPTIONS = ['Pemasukan', 'Pengeluaran'] as const
+const FORM_DEFAULT = { jenis: 'Pemasukan' as (typeof JENIS_OPTIONS)[number], kategori: '', keterangan: '', jumlah: '' }
 
 const PERIODE_OPTIONS = ['September 2026', 'Agustus 2026', 'Juli 2026']
 const JENIS_FILTERS = ['Semua Jenis', 'Pemasukan', 'Pengeluaran']
@@ -123,18 +102,94 @@ export function KeuanganPage() {
   const [ringkasanPeriode, setRingkasanPeriode] = useState('Bulan Ini')
   const [jenisFilter, setJenisFilter] = useState(JENIS_FILTERS[0])
   const [query, setQuery] = useState('')
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [form, setForm] = useState(FORM_DEFAULT)
 
-  const totalPengeluaran = PENGELUARAN_KATEGORI.reduce((sum, item) => sum + item.nilai, 0)
+  const [transaksi, setTransaksi] = usePersistedState<TransaksiKeuangan[]>('transaksi', () =>
+    seedData(TRANSAKSI_SEPTEMBER_2026, []),
+  )
+  const HUTANG_PIUTANG = seedData(HUTANG_PIUTANG_DUMMY, [] as typeof HUTANG_PIUTANG_DUMMY)
+  const TOTAL_HUTANG_PIUTANG = HUTANG_PIUTANG.reduce((sum, item) => sum + item.jumlah, 0)
+
+  const pemasukanReal = transaksi.filter((t) => t.jenis === 'Pemasukan').reduce((sum, t) => sum + t.jumlah, 0)
+  const pengeluaranReal = transaksi.filter((t) => t.jenis === 'Pengeluaran').reduce((sum, t) => sum + Math.abs(t.jumlah), 0)
+  const totalPemasukan = seedData(TOTAL_PEMASUKAN_SEPTEMBER_2026, pemasukanReal)
+  const totalPengeluaran = seedData(TOTAL_PENGELUARAN_SEPTEMBER_2026, pengeluaranReal)
+  const saldoKas = totalPemasukan - totalPengeluaran
+
+  const PENGELUARAN_KATEGORI = seedData(
+    PENGELUARAN_KATEGORI_DUMMY,
+    Object.values(
+      transaksi
+        .filter((t) => t.jenis === 'Pengeluaran')
+        .reduce<Record<string, { kategori: string; nilai: number; icon: typeof Wallet }>>((acc, t) => {
+          acc[t.kategori] ??= { kategori: t.kategori, nilai: 0, icon: Wallet }
+          acc[t.kategori].nilai += Math.abs(t.jumlah)
+          return acc
+        }, {}),
+    ).sort((a, b) => b.nilai - a.nilai),
+  )
+
+  const STATS = [
+    {
+      label: 'Pemasukan Bulan Ini',
+      value: rupiahSingkat(totalPemasukan),
+      hint: seedData('+12% dari bulan lalu', 'Total transaksi tercatat'),
+      delta: seedData('+12%', undefined),
+      icon: Wallet,
+    },
+    {
+      label: 'Pengeluaran Bulan Ini',
+      value: rupiahSingkat(totalPengeluaran),
+      hint: seedData('Turun dari bulan lalu', 'Total transaksi tercatat'),
+      icon: TrendingDown,
+      tone: 'bg-amber-500/10 text-amber-600',
+    },
+    {
+      label: 'Saldo Kas',
+      value: rupiahSingkat(saldoKas),
+      hint: 'Pemasukan dikurangi pengeluaran',
+      icon: PiggyBank,
+      tone: 'bg-sky-500/10 text-sky-600',
+    },
+    {
+      label: 'Hutang & Piutang',
+      value: rupiahSingkat(TOTAL_HUTANG_PIUTANG),
+      hint: HUTANG_PIUTANG.length > 0 ? `Dari ${HUTANG_PIUTANG.length} pihak` : 'Belum ada catatan',
+      icon: CircleAlert,
+      tone: 'bg-destructive/10 text-destructive',
+    },
+  ]
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase()
-    return TRANSAKSI.filter((row) => {
+    return transaksi.filter((row) => {
       const matchesQuery =
         !q || row.keterangan.toLowerCase().includes(q) || row.kategori.toLowerCase().includes(q)
       const matchesJenis = jenisFilter === 'Semua Jenis' || row.jenis === jenisFilter
       return matchesQuery && matchesJenis
     })
-  }, [query, jenisFilter])
+  }, [query, jenisFilter, transaksi])
+
+  function handleCatatTransaksi() {
+    const jumlah = Number(form.jumlah)
+    if (!form.kategori || !form.keterangan || !jumlah) {
+      toast.error('Lengkapi semua field terlebih dahulu')
+      return
+    }
+    const tanggal = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })
+    const entry: TransaksiKeuangan = {
+      tanggal,
+      jenis: form.jenis,
+      kategori: form.kategori,
+      keterangan: form.keterangan,
+      jumlah: form.jenis === 'Pengeluaran' ? -Math.abs(jumlah) : Math.abs(jumlah),
+    }
+    setTransaksi((prev) => [entry, ...prev])
+    toast.success('Transaksi tercatat')
+    setForm(FORM_DEFAULT)
+    setDialogOpen(false)
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -164,7 +219,7 @@ export function KeuanganPage() {
               ))}
             </DropdownMenuContent>
           </DropdownMenu>
-          <Button>
+          <Button onClick={() => setDialogOpen(true)}>
             <Plus />
             Catat Transaksi
           </Button>
@@ -224,7 +279,19 @@ export function KeuanganPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {rows.length === 0 ? (
+              {transaksi.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="p-0">
+                    <EmptyState
+                      icon={Wallet}
+                      title="Belum ada transaksi keuangan"
+                      description="Catat pemasukan atau pengeluaran pertama untuk mulai memantau kas usahamu."
+                      actionLabel="Catat Transaksi"
+                      onAction={() => setDialogOpen(true)}
+                    />
+                  </TableCell>
+                </TableRow>
+              ) : rows.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">
                     Tidak ada transaksi yang cocok dengan pencarian atau filter.
@@ -285,6 +352,9 @@ export function KeuanganPage() {
             </Button>
           </CardHeader>
           <CardContent className="flex flex-col gap-1">
+            {HUTANG_PIUTANG.length === 0 && (
+              <p className="py-6 text-center text-xs text-muted-foreground">Belum ada catatan hutang atau piutang.</p>
+            )}
             {HUTANG_PIUTANG.map((item, index) => (
               <div key={item.pihak} className="flex items-center justify-between gap-3 rounded-lg px-1.5 py-2 hover:bg-muted/60">
                 <div className="flex items-center gap-2.5">
@@ -347,6 +417,9 @@ export function KeuanganPage() {
             </DropdownMenu>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
+            {PENGELUARAN_KATEGORI.length === 0 && (
+              <p className="py-6 text-center text-xs text-muted-foreground">Belum ada pengeluaran tercatat.</p>
+            )}
             {PENGELUARAN_KATEGORI.map((item) => {
               const pct = Math.round((item.nilai / totalPengeluaran) * 100)
               return (
@@ -367,6 +440,73 @@ export function KeuanganPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Catat Transaksi Baru</DialogTitle>
+            <DialogDescription>Catat pemasukan atau pengeluaran usaha hari ini.</DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label>Jenis</Label>
+              <Select
+                value={form.jenis}
+                onValueChange={(value) => value && setForm((prev) => ({ ...prev, jenis: value as (typeof JENIS_OPTIONS)[number] }))}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {JENIS_OPTIONS.map((item) => (
+                    <SelectItem key={item} value={item}>
+                      {item}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="tr-jumlah">Jumlah (Rp)</Label>
+              <Input
+                id="tr-jumlah"
+                type="number"
+                inputMode="numeric"
+                value={form.jumlah}
+                onChange={(event) => setForm((prev) => ({ ...prev, jumlah: event.target.value }))}
+                placeholder="0"
+              />
+            </div>
+            <div className="space-y-2 sm:col-span-2">
+              <Label htmlFor="tr-kategori">Kategori</Label>
+              <Input
+                id="tr-kategori"
+                value={form.kategori}
+                onChange={(event) => setForm((prev) => ({ ...prev, kategori: event.target.value }))}
+                placeholder="Contoh: Penjualan TBS, Operasional, Gaji"
+              />
+            </div>
+            <div className="space-y-2 sm:col-span-2">
+              <Label htmlFor="tr-keterangan">Keterangan</Label>
+              <Input
+                id="tr-keterangan"
+                value={form.keterangan}
+                onChange={(event) => setForm((prev) => ({ ...prev, keterangan: event.target.value }))}
+                placeholder="Contoh: Setoran PKS Ambawang"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDialogOpen(false)}>
+              Batal
+            </Button>
+            <Button onClick={handleCatatTransaksi}>
+              <Plus />
+              Simpan Transaksi
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

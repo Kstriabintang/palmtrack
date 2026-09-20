@@ -60,6 +60,7 @@ PalmTrack adalah sistem manajemen sawit berbasis web yang dirancang khusus untuk
 - Login berbasis kunci lisensi (bukan email/password) — satu aktivasi per perangkat, bukan per-karyawan
 - Masa berlaku lisensi otomatis (default 12 bulan) dengan peringatan mendekati kedaluwarsa & alur perpanjangan
 - Validasi kunci sepenuhnya di sisi client (format + checksum), tidak memerlukan server lisensi terpisah
+- Akun baru (bukan kunci demo) mulai dari **kosong**, bukan data contoh — lewat onboarding singkat (nama usaha + harga TBS awal), lalu setiap modul menampilkan status kosong yang jelas sampai Bos mulai input data sendiri
 
 ### 💰 Keuangan Sederhana
 - Pemasukan: pencatatan hasil jual TBS ke pabrik / PKS
@@ -463,6 +464,7 @@ Laporan
 - [x] Modul Panduan Budidaya (read-only, dikurasi tim PalmTrack)
 - [x] Modul Pengaturan (profil, notifikasi, keamanan, sistem, status lisensi)
 - [x] Login berbasis kunci lisensi (bukan email/password), dengan masa berlaku otomatis
+- [x] Akun baru mulai kosong (bukan data contoh) + onboarding singkat + empty state di tiap modul
 - [x] Integrasi WhatsApp untuk nota & pengingat pembayaran (deep link `wa.me`, bukan simulasi)
 - [x] Mode offline untuk Input Timbang — antrian lokal & auto-sync saat online kembali
 - [x] Cetak Nota Timbang & Laporan (Bulanan/Tahunan) sebagai PDF bermerek — bukan placeholder

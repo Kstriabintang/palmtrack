@@ -33,6 +33,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
+import { getBusinessProfile, isOnboarded } from '@/lib/business'
+import { isDemoMode } from '@/lib/dummy-mode'
 import { initials } from '@/lib/format'
 import { clearLicense, isLicenseUsable } from '@/lib/license'
 import { cn } from '@/lib/utils'
@@ -162,9 +164,15 @@ export function AppLayout() {
   useEffect(() => {
     if (!isLicenseUsable()) {
       navigate('/login', { replace: true })
+      return
+    }
+    if (!isDemoMode() && !isOnboarded()) {
+      navigate('/onboarding', { replace: true })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname])
+
+  const businessName = isDemoMode() ? 'Manajemen Sawit' : (getBusinessProfile()?.namaUsaha ?? 'Manajemen Sawit')
 
   function markAsRead(id: string) {
     setNotifications((prev) => prev.map((item) => (item.id === id ? { ...item, unread: false } : item)))
@@ -197,7 +205,7 @@ export function AppLayout() {
                 PalmTrack
               </span>
               <span className="truncate text-xs text-sidebar-foreground/55">
-                Manajemen Sawit
+                {businessName}
               </span>
             </div>
           </div>
