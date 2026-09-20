@@ -16,7 +16,7 @@
 </p>
 
 <p align="center">
-  <a href="https://kstriabintang.github.io/palmtrack/"><strong>🚀 Lihat Demo Langsung</strong></a>
+  <a href="https://ksatriabintangsamudra.my.id/palmtrack/"><strong>🚀 Lihat Demo Langsung</strong></a>
 </p>
 
 > **Catatan demo:** Repositori ini menampilkan progres pengembangan `palmtrack-web` (Phase 1). Saat ini frontend berjalan dengan data contoh (belum terhubung ke backend Laravel sungguhan) untuk keperluan demonstrasi UI/UX dan alur kerja.
