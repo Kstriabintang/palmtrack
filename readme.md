@@ -16,7 +16,7 @@
 </p>
 
 <p align="center">
-  <a href="https://ksatriabintangsamudra.my.id/palmtrack/"><strong>🚀 Lihat Demo Langsung</strong></a>
+  <a href="https://palmtrack.ksatriabintangsamudra.com/"><strong>🚀 Lihat Demo Langsung</strong></a>
 </p>
 
 > **Catatan demo:** Repositori ini menampilkan progres pengembangan `palmtrack-web` (Phase 1). Saat ini frontend berjalan dengan data contoh (belum terhubung ke backend Laravel sungguhan) untuk keperluan demonstrasi UI/UX dan alur kerja.
@@ -239,7 +239,7 @@ Tertarik lihat/kontribusi ke source code, kerja sama, atau audit teknis? Hubungi
 
 | Nama | Role |
 |---|---|
-| [Ksatria Bintang Samudra](https://ksatriabintangsamudra.my.id) | Founder & Lead Developer |
+| [Ksatria Bintang Samudra](https://ksatriabintangsamudra.com) | Founder & Lead Developer |
 
 ---
 
